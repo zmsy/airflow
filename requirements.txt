@@ -83,6 +83,7 @@ ply==3.11
 protobuf==3.6.0
 psutil==4.4.2
 psycopg2==2.7.5
+psycopg2-binary==2.7.5
 pyaml==17.12.1
 pyasn1==0.4.3
 pycparser==2.18
@@ -114,7 +115,6 @@ setproctitle==1.1.10
 six==1.11.0
 slackclient==1.2.1
 smmap2==2.0.3
-snakebite==2.11.0
 snowballstemmer==1.2.1
 Sphinx==1.7.5
 sphinx-argparse==0.2.2
