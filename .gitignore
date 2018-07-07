@@ -1,1 +1,5 @@
 logs/*
+*.log
+*.err
+*.out
+*.pid
