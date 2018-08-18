@@ -3,3 +3,5 @@ logs/*
 *.err
 *.out
 *.pid
+cfg_backup.cfg
+
