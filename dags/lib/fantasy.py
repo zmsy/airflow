@@ -178,19 +178,18 @@ def main():
     # ## Get Projections
     # 
     # For this part, we need to call some external bash code here, because the form data is too big to reasonably bring into the script here. Check out the [original blog post](https://zmsy.co/blog/fantasy-baseball/) on how to configure this for your own purposes.
-    subprocess.call('./get_fangraphs.sh', shell=True)
+    subprocess.check_call('./get_fangraphs.sh', shell=True)
 
     # ## Read Data Into Pandas
     # 
     # Load those CSV files using read_csv() in pandas. Since some of the percentage values are stored as strings, we need to parse those into floats.
-    # 
     # We want to create two dataframes here:
     # 
     # - `dfb` - Batters Dataframe
     # - `dfp` - Pitchers Dataframe
-    df_rost = pd.read_csv('rosters.csv')
-    dfb_act = pd.read_csv('batters_actuals.csv')
-    dfp_act = pd.read_csv('pitchers_actuals.csv')
+    df_rost = pd.read_csv(output_path('rosters.csv'))
+    dfb_act = pd.read_csv(output_path('batters_actuals.csv'))
+    dfp_act = pd.read_csv(output_path('pitchers_actuals.csv'))
 
     # apply that to all percentage values in the dataframes
     for col in dfb_act.columns:

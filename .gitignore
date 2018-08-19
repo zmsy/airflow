@@ -4,4 +4,4 @@ logs/*
 *.out
 *.pid
 cfg_backup.cfg
-
+output/*
