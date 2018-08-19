@@ -15,10 +15,9 @@ import subprocess
 import os
 import pandas as pd
 import numpy as np
-import seaborn as sb
-from bs4 import BeautifulSoup
 import sqlalchemy
 import psycopg2
+from bs4 import BeautifulSoup
 pd.options.display.max_columns = 150
 
 # connection information for the database
@@ -42,8 +41,10 @@ TRANSLATIONS = {
 }
 
 
-# function to retrieve roster data
 def get_rosters():
+    """
+    Looks up the league's roster data and returns it in CSV format.
+    """
     rosters_html = requests.get(LEAGUE_URL.format(league_id=LEAGUE_ID)).text
     rosters_soup = BeautifulSoup(rosters_html, "lxml")
     rosters = rosters_soup.find_all("table", {'class': 'playerTableTable'})
@@ -57,7 +58,7 @@ def get_rosters():
             player_name = player.text.split(",")[0]
             player_name = player_name.replace("*", "")
 
-            # translate player name if necessary
+            #tters translate player name if necessary
             translation = TRANSLATIONS.get(player_name)
             if translation:
                 player_name = translation
@@ -69,6 +70,7 @@ def get_rosters():
         writer = csv.writer(out_file)
         writer.writerow(("Name", "Squad"))
         writer.writerows(players)
+
 
 def parse_array_from_fangraphs_html(input_html, out_file_name):
     """
@@ -99,10 +101,54 @@ def parse_array_from_fangraphs_html(input_html, out_file_name):
         writer.writerow(headers)
         writer.writerows(rows)
 
-# create a function to parse out percentage strings to floats
+
 def parse_pctg(value):
+    """
+    Parse the text value for percentages out into a float.
+    """
     return float(value.split()[0]) / 100
 
+
+def league(x):
+    """
+    Since FG data didnt come with league info, create a dict of league
+    info for lookups.
+    """
+
+    LEAGUES = {
+        'Angels': 'AL',
+        'Astros': 'AL',
+        'Athletics': 'AL',
+        'Blue Jays': 'AL',
+        'Braves': 'NL',
+        'Brewers': 'NL',
+        'Cardinals': 'NL',
+        'Cubs': 'NL',
+        'Diamondbacks': 'NL',
+        'Dodgers': 'NL',
+        'Giants': 'NL',
+        'Indians': 'AL',
+        'Mariners': 'AL',
+        'Marlins': 'NL',
+        'Mets': 'NL',
+        'Nationals': 'NL',
+        'Orioles': 'AL',
+        'Padres': 'NL',
+        'Phillies': 'NL',
+        'Pirates': 'NL',
+        'Rangers': 'AL',
+        'Rays': 'AL',
+        'Red Sox': 'AL',
+        'Reds': 'NL',
+        'Rockies': 'NL',
+        'Royals': 'AL',
+        'Tigers': 'AL',
+        'Twins': 'AL',
+        'White Sox': 'AL',
+        'Yankees': 'AL'
+    }
+
+    return LEAGUES.get(x)
 
 def main():
     """
@@ -137,7 +183,6 @@ def main():
     # For this part, we need to call some external bash code here, because the form data is too big to reasonably bring into the script here. Check out the [original blog post](https://zmsy.co/blog/fantasy-baseball/) on how to configure this for your own purposes.
     subprocess.call('./get_fangraphs.sh', shell=True)
 
-
     # ## Read Data Into Pandas
     # 
     # Load those CSV files using read_csv() in pandas. Since some of the percentage values are stored as strings, we need to parse those into floats.
@@ -146,7 +191,6 @@ def main():
     # 
     # - `dfb` - Batters Dataframe
     # - `dfp` - Pitchers Dataframe
-
     df_rost = pd.read_csv('rosters.csv')
     dfb_act = pd.read_csv('batters_actuals.csv')
     dfp_act = pd.read_csv('pitchers_actuals.csv')
@@ -164,9 +208,6 @@ def main():
     df_rost.columns = [x.lower() for x in df_rost.columns]
     dfb_act.columns = [x.replace("%", "_pct").replace('+', '_plus').replace("/", "-").lower() for x in dfb_act.columns]
     dfp_act.columns = [x.replace("%", "_pct").replace('+', '_plus').replace("/", "-").lower() for x in dfp_act.columns]
-
-
-    # In[72]:
 
 
     with open('batters_projections.html', 'r') as bhtml:
@@ -202,64 +243,21 @@ def main():
 
     dfb = dfb[dfb['pa'] > 100]
     dfp = dfp[dfp['ip'] > 20]
-
-    # add in league information
-    LEAGUES = {
-        'Angels': 'AL',
-        'Astros': 'AL',
-        'Athletics': 'AL',
-        'Blue Jays': 'AL',
-        'Braves': 'NL',
-        'Brewers': 'NL',
-        'Cardinals': 'NL',
-        'Cubs': 'NL',
-        'Diamondbacks': 'NL',
-        'Dodgers': 'NL',
-        'Giants': 'NL',
-        'Indians': 'AL',
-        'Mariners': 'AL',
-        'Marlins': 'NL',
-        'Mets': 'NL',
-        'Nationals': 'NL',
-        'Orioles': 'AL',
-        'Padres': 'NL',
-        'Phillies': 'NL',
-        'Pirates': 'NL',
-        'Rangers': 'AL',
-        'Rays': 'AL',
-        'Red Sox': 'AL',
-        'Reds': 'NL',
-        'Rockies': 'NL',
-        'Royals': 'AL',
-        'Tigers': 'AL',
-        'Twins': 'AL',
-        'White Sox': 'AL',
-        'Yankees': 'AL'
-    }
-
-
-    # derive the league for each player. my league is AL-only, so we want to focus on that.
-    def league(x):
-        return LEAGUES.get(x)
-
     dfb['league'] = dfb['team'].apply(lambda x: league(x))
     dfp['league'] = dfp['team'].apply(lambda x: league(x))
 
     # rearrange columns for readability and filter some out
     # keep only ones relevant for our league
-    dfb_columns = ['#', 'name', 'squad', 'team', 'league', 'pa', 'pa.a', 'ab', 'h', 'so', 'k_pct', 'hr', 'hr.a', 'avg',
-        'iso', 'babip', 'wrc_plus', 'avg.a', 'obp', 'obp.a', 'woba', 'woba.a', 'slg', 'slg.a', 'ops', 'bb_pct', 'bb']
+    dfb_columns = ['#', 'name', 'squad', 'team', 'league', 'pa', 'pa.a', 'ab', 'h', 'so', 'k_pct', 'hr', 'hr.a', 'avg', 'iso', 'babip', 'wrc_plus', 'avg.a', 'obp', 'obp.a', 'woba', 'woba.a', 'slg', 'slg.a', 'ops', 'bb_pct', 'bb']
 
-    dfp_columns = ['#', 'name', 'squad', 'team', 'league', 'ip', 'era', 'er', 'hr', 'so', 'bb', 'whip', 'k-9', 'bb-9', 'fip',
-        'k-9.a', 'bb-9.a', 'k-bb', 'k_pct', 'whip.a', 'so.a', 'lob_pct', 'era.a', 'fip.a', 'e-f', 'xfip', 'siera', 'ip.a']
+    dfp_columns = ['#', 'name', 'squad', 'team', 'league', 'ip', 'era', 'er', 'hr', 'so', 'bb', 'whip', 'k-9', 'bb-9', 'fip', 'k-9.a', 'bb-9.a', 'k-bb', 'k_pct', 'whip.a', 'so.a', 'lob_pct', 'era.a', 'fip.a', 'e-f', 'xfip', 'siera', 'ip.a']
 
-
+    # filter to just the columns we want
     dfb = dfb[dfb_columns]
     dfp = dfp[dfp_columns]
 
 
     # ## Calculate Scores
-    # 
     # The individual players in both the batting and pitching groups will get scored based on the entirety of the sample available. We calculate a composite score by taking the individual z-scores in each of the categories and trying to determine which players are above average.
 
     # a 1 represents a positive number, i.e. higher is better
