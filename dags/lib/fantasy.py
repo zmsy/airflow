@@ -1,12 +1,9 @@
+"""
+Fantasy Baseball
 
-# coding: utf-8
-
-# # Fantasy Baseball Pandas Analysis
-# 
-# This takes a number of inputs and produces fantasy scores for each player.
-
-# In[1]:
-
+Retrieves, parses and inserts fantasy data into the postgres db
+for later analysis.
+"""
 
 import requests
 import csv
@@ -18,6 +15,7 @@ import numpy as np
 import sqlalchemy
 import psycopg2
 from bs4 import BeautifulSoup
+from utilities import output_path
 pd.options.display.max_columns = 150
 
 # connection information for the database
@@ -32,13 +30,6 @@ POSTGRES_DB = 'postgres'
 # This will rip the roster information from ESPN and save it to a local CSV file.
 LEAGUE_URL = "http://games.espn.com/flb/leaguerosters?leagueId={league_id}"
 LEAGUE_ID = 15594
-
-# translate ESPN names to Fangraphs names.
-# Add new names as required, since name is used to join the data sets.
-TRANSLATIONS = {
-    'Nicky Delmonico': 'Nick Delmonico',
-    'Yuli Gurriel': 'Yulieski Gurriel'
-}
 
 
 def get_rosters():
@@ -58,7 +49,12 @@ def get_rosters():
             player_name = player.text.split(",")[0]
             player_name = player_name.replace("*", "")
 
-            #tters translate player name if necessary
+            TRANSLATIONS = {
+                'Nicky Delmonico': 'Nick Delmonico',
+                'Yuli Gurriel': 'Yulieski Gurriel'
+            }
+
+            #translate player name if necessary
             translation = TRANSLATIONS.get(player_name)
             if translation:
                 player_name = translation
@@ -66,7 +62,7 @@ def get_rosters():
             # add to output list
             players.append([player_name, team_name])
 
-    with open("rosters.csv", "w", newline='') as out_file:
+    with open(output_path("rosters.csv"), "w", newline='') as out_file:
         writer = csv.writer(out_file)
         writer.writerow(("Name", "Squad"))
         writer.writerows(players)
@@ -96,7 +92,7 @@ def parse_array_from_fangraphs_html(input_html, out_file_name):
         rows.append(row_data)
     
     # write to CSV file
-    with open(out_file_name, "w") as out_file:
+    with open(output_path(out_file_name), "w") as out_file:
         writer = csv.writer(out_file)
         writer.writerow(headers)
         writer.writerows(rows)
@@ -109,7 +105,7 @@ def parse_pctg(value):
     return float(value.split()[0]) / 100
 
 
-def league(x):
+def league(team_name):
     """
     Since FG data didnt come with league info, create a dict of league
     info for lookups.
@@ -148,7 +144,8 @@ def league(x):
         'Yankees': 'AL'
     }
 
-    return LEAGUES.get(x)
+    return LEAGUES.get(team_name)
+
 
 def main():
     """
@@ -210,12 +207,12 @@ def main():
     dfp_act.columns = [x.replace("%", "_pct").replace('+', '_plus').replace("/", "-").lower() for x in dfp_act.columns]
 
 
-    with open('batters_projections.html', 'r') as bhtml:
+    with open(output_path('batters_projections.html'), 'r') as bhtml:
         btxt = bhtml.read()
         dfb_proj = pd.read_html(btxt)[-1]  # read_html returns ALL tables, we just want the last one.
         dfb_proj.dropna(axis=1, inplace=True)
 
-    with open('pitchers_projections.html', 'r') as phtml:
+    with open(output_path('pitchers_projections.html'), 'r') as phtml:
         ptxt = phtml.read()
         dfp_proj = pd.read_html(ptxt)[-1]
         dfp_proj.dropna(axis=1, inplace=True)
@@ -227,7 +224,6 @@ def main():
     # join the datasets together. we want one
     # for batters and one for pitchers, with
     # roster information in both of them.
-
     dfb = pd.merge(dfb_proj, df_rost, how='left', on='name', suffixes=('.p', '.r'))
     dfb = pd.merge(dfb, dfb_act, how='left', on='name', suffixes=('', '.a'))
 
