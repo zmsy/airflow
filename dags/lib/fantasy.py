@@ -32,6 +32,13 @@ LEAGUE_URL = "http://games.espn.com/flb/leaguerosters?leagueId={league_id}"
 LEAGUE_ID = 15594
 
 
+def output_path(file_name):
+    """
+    Retrieves the global output folder and any files in it.
+    """
+    return os.path.join(os.environ.get('AIRFLOW_HOME'), 'output', file_name)
+
+
 def get_rosters():
     """
     Looks up the league's roster data and returns it in CSV format.
