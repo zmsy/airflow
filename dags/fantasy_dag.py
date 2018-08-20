@@ -13,7 +13,7 @@ default_args = {
     'retry_delay': timedelta(minutes=5)
 }
 
-dag = DAG('fantasy_baseball', default_args=default_args)
+dag = airflow.DAG('fantasy_baseball', default_args=default_args)
 
 
 t1 = PythonOperator(

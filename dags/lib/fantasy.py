@@ -15,7 +15,6 @@ import numpy as np
 import sqlalchemy
 import psycopg2
 from bs4 import BeautifulSoup
-from utilities import output_path
 pd.options.display.max_columns = 150
 
 # connection information for the database
