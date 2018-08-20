@@ -280,7 +280,6 @@ def main():
     for col in dfb_score_cols.keys():
         col_score = col + "_score"
         dfb[col_score] = (dfb[col] - dfb[col].mean()) / dfb[col].std(ddof=0) * dfb_score_cols.get(col)
-        
 
     for col in dfp_score_cols.keys():
         col_score = col + "_score"
@@ -297,11 +296,11 @@ def main():
         port=POSTGRES_PORT,
         db=POSTGRES_DB
     ))
-    conn = engine.connect()
 
+    # open a connection and write the info back to the database
+    conn = engine.connect()
     dfb.to_sql('batters', conn, schema='fantasy', if_exists='replace')
     dfb.to_sql('pitchers', conn, schema='fantasy', if_exists='replace')
-
     conn.close()
 
 
