@@ -1,7 +1,7 @@
 import airflow
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime, timedelta
-import lib.fantasy
+import lib.fantasy as fantasy
 
 
 default_args = {
