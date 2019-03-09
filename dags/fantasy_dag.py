@@ -10,7 +10,8 @@ default_args = {
     'email': ['airflow@zmsy.co'],
     'email_on_failure': False,
     'retries': 1,
-    'retry_delay': timedelta(minutes=5)
+    'retry_delay': timedelta(minutes=5),
+    'start_date': datetime(2019, 3, 8)
 }
 
 dag = airflow.DAG('fantasy_baseball', default_args=default_args)
