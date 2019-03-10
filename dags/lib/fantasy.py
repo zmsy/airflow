@@ -68,7 +68,8 @@ def get_rosters():
             # add to output list
             players.append([player_name, team_name])
 
-    with open(output_path("rosters.csv"), "w", newline='') as out_file:
+    out_file_path = output_path("rosters.csv")
+    with open(out_file_path, "w", newline='') as out_file:
         writer = csv.writer(out_file)
         writer.writerow(("Name", "Squad"))
         writer.writerows(players)
@@ -93,9 +94,11 @@ def parse_array_from_fangraphs_html(input_html, out_file_name):
     rows_html = table.find("tbody").find_all("tr")
     for row in rows_html:
         row_data = []
-        for cell in row.find_all("td"):
-            row_data.append(cell.text)
-        rows.append(row_data)
+        cells = row.find_all("td")
+        if len(cells) > 1:
+            for cell in cells:
+                row_data.append(cell.text)
+            rows.append(row_data)
     
     # write to CSV file
     with open(output_path(out_file_name), "w") as out_file:
@@ -160,7 +163,7 @@ def main():
     """
 
     # get the rosters and write them to disk
-    get_rosters()
+    # get_rosters()
 
     # ## Get and Parse Actuals
     # 
