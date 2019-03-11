@@ -9,6 +9,7 @@ import requests
 import csv
 import datetime
 import subprocess
+import json
 import os
 import pandas as pd
 import numpy as np
@@ -24,10 +25,15 @@ POSTGRES_IP = "192.168.0.118"
 POSTGRES_PORT = 5432
 POSTGRES_DB = 'postgres'
 
+# requests + espn auth data
+USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Safari/537.36'
+ESPN_SWID = os.environ["ESPN_SWID"]
+ESPN_S2 = os.environ["ESPN_S2"]
 
 # ## Get Roster Data
 # This will rip the roster information from ESPN and save it to a local CSV file.
-LEAGUE_URL = "http://games.espn.com/flb/leaguerosters?leagueId={league_id}"
+ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/2019/segments/0/leagues/{league_id}?view=mDraftDetail&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
+LEAGUE_URL = "http://fantasy.espn.com/baseball/league/rosters?leagueId={league_id}"
 LEAGUE_ID = 15594
 
 
@@ -38,41 +44,25 @@ def output_path(file_name):
     return os.path.join(os.environ.get('AIRFLOW_HOME'), 'output', file_name)
 
 
-def get_rosters():
+def get_espn_data():
     """
-    Looks up the league's roster data and returns it in CSV format.
+    Looks up the league's roster data and returns it in JSON format.
+
+    Follow-on parsing tasks:
+    - league members.
+    - league settings & information.
+    - teams.
+    - rosters for each team.
+    - watchlists.
+    - transaction counter
+    - draft data.
     """
-    rosters_html = requests.get(LEAGUE_URL.format(league_id=LEAGUE_ID)).text
-    rosters_soup = BeautifulSoup(rosters_html, "lxml")
-    rosters = rosters_soup.find_all("table", {'class': 'playerTableTable'})
+    rosters_json_text = requests.get(ROSTERS_URL.format(league_id=LEAGUE_ID)).text
+    rosters_json = json.loads(rosters_json_text)
 
-    players = []
-    for roster in rosters:
-        team_name = roster.find("a").text
-        players_html = roster.find_all("td", {'class': 'playertablePlayerName'})
-        for player in players_html:
-            # parse player info
-            player_name = player.text.split(",")[0]
-            player_name = player_name.replace("*", "")
-
-            TRANSLATIONS = {
-                'Nicky Delmonico': 'Nick Delmonico',
-                'Yuli Gurriel': 'Yulieski Gurriel'
-            }
-
-            #translate player name if necessary
-            translation = TRANSLATIONS.get(player_name)
-            if translation:
-                player_name = translation
-
-            # add to output list
-            players.append([player_name, team_name])
-
-    out_file_path = output_path("rosters.csv")
+    out_file_path = output_path("rosters.json")
     with open(out_file_path, "w", newline='') as out_file:
-        writer = csv.writer(out_file)
-        writer.writerow(("Name", "Squad"))
-        writer.writerows(players)
+        json.dump(rosters_json, out_file, indent=2)
 
 
 def parse_array_from_fangraphs_html(input_html, out_file_name):
@@ -101,7 +91,8 @@ def parse_array_from_fangraphs_html(input_html, out_file_name):
             rows.append(row_data)
     
     # write to CSV file
-    with open(output_path(out_file_name), "w") as out_file:
+    out_file_path = output_path(out_file_name)
+    with open(out_file_path, "w") as out_file:
         writer = csv.writer(out_file)
         writer.writerow(headers)
         writer.writerows(rows)
@@ -163,11 +154,7 @@ def main():
     """
 
     # get the rosters and write them to disk
-    # get_rosters()
-
-    # ## Get and Parse Actuals
-    # 
-    # Looks through the URLs to grab batting & pitching actuals and deliver those back to the user.
+    get_espn_data()
 
     # static urls
     season = datetime.datetime.now().year
