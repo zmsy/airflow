@@ -49,19 +49,14 @@ def get_espn_headers():
     """
     Returns the correct set of headers for the ESPN request.
     """
-    return {
-        'X-Fantasy-Platform': 'kona-PROD-955c44b415a96e5c22bf97778ec0ce85dc325233'
-    }
+    return {"X-Fantasy-Platform": "kona-PROD-955c44b415a96e5c22bf97778ec0ce85dc325233"}
 
 
 def get_espn_cookies():
     """
     Returns the appropriate cookies for ESPN.
     """
-    return {
-        'swid': ESPN_SWID,
-        'espn_s2': ESPN_S2
-    }
+    return {"swid": ESPN_SWID, "espn_s2": ESPN_S2}
 
 
 def get_espn_league_data():
@@ -80,7 +75,7 @@ def get_espn_league_data():
     league_data_raw = requests.get(
         ESPN_ROSTERS_URL.format(league_id=ESPN_LEAGUE_ID),
         cookies=get_espn_cookies(),
-        headers=get_espn_headers()
+        headers=get_espn_headers(),
     )
     rosters_json = json.loads(league_data_raw.text)
 
@@ -118,7 +113,7 @@ def get_espn_player_data():
     t = requests.get(
         ESPN_PLAYERS_URL.format(league_id=ESPN_LEAGUE_ID),
         headers=headers,
-        cookies=get_espn_cookies()
+        cookies=get_espn_cookies(),
     )
     players_json = json.loads(t.text)
 
