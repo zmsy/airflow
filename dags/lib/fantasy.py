@@ -79,7 +79,8 @@ def get_espn_league_data():
     )
     rosters_json = json.loads(league_data_raw.text)
 
-    out_file_path = output_path("rosters.json")
+    date_str = str(datetime.date.today())
+    out_file_path = output_path("rosters" + date_str + ".json")
     with open(out_file_path, "w", newline="") as out_file:
         json.dump(rosters_json, out_file, indent=2)
 
@@ -117,7 +118,8 @@ def get_espn_player_data():
     )
     players_json = json.loads(t.text)
 
-    out_file_path = output_path("players.json")
+    date_str = str(datetime.date.today())
+    out_file_path = output_path("players" + date_str + ".json")
     with open(out_file_path, "w", newline="") as out_file:
         json.dump(players_json, out_file, indent=2)
 
