@@ -1,7 +1,7 @@
 import airflow
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime, timedelta
-import lib.fantasy as fantasy
+import lib.espn as espn
 
 
 default_args = {
@@ -20,14 +20,14 @@ dag = airflow.DAG('fantasy_baseball', default_args=default_args)
 t1 = PythonOperator(
     dag=dag,
     task_id = 'get_espn_league_data',
-    python_callable=fantasy.get_espn_league_data,
+    python_callable=espn.get_espn_league_data,
     default_args=default_args
 )
 
 t2 = PythonOperator(
     dag=dag,
     task_id = 'get_espn_player_data',
-    python_callable=fantasy.get_espn_player_data,
+    python_callable=espn.get_espn_player_data,
     default_args=default_args
 )
 
