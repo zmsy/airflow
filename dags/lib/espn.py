@@ -141,13 +141,46 @@ def load_league_members_to_postgres():
     cur = conn.cursor()
     cur.execute(
         """
+        DROP TABLE IF EXISTS fantasy.members;
         CREATE TABLE IF NOT EXISTS fantasy.members (
+            id serial primary key,
             displayName varchar(64),
             firstName varchar(32),
-            id varchar(64),
+            espn_id varchar(64),
             isLeagueCreator boolean,
             isLeagueManager boolean,
             lastName varchar(32)
-        )
+        );
+        GRANT SELECT ON fantasy.members TO PUBLIC;
         """
     )
+
+    # load the member data from the json output.
+    date_str = str(datetime.date.today())
+    with open(output_path("rosters" + date_str + ".json")) as json_file:
+        roster_data = json.load(json_file)
+        member_data = roster_data["members"]
+
+    # loop through and insert each member into the table
+    for mem in member_data:
+        member_insert = tuple(
+            [
+                mem.get("displayName"),
+                mem.get("firstName"),
+                mem.get("id"),
+                bool(mem.get("isLeagueCreator")),
+                bool(mem.get("isLeagueManager")),
+                mem.get("lastName"),
+            ]
+        )
+
+        cur.execute("INSERT INTO fantasy.members VALUES (DEFAULT, %s, %s, %s, %s, %s, %s)", member_insert)
+
+    # commit changes and close the connection
+    conn.commit()
+    conn.close()
+
+
+if __name__ == "__main__":
+    # get_espn_league_data()
+    load_league_members_to_postgres()

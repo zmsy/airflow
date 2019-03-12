@@ -31,4 +31,12 @@ t2 = PythonOperator(
     default_args=default_args
 )
 
+t3 = PythonOperator(
+    dag=dag,
+    task_id = 'load_league_members_to_postgres',
+    python_callable=espn.load_league_members_to_postgres,
+    default_args=default_args
+)
+
 t2.set_upstream(t1)
+t3.set_upstream(t2)
