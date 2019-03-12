@@ -16,35 +16,55 @@ import numpy as np
 import sqlalchemy
 import psycopg2
 from bs4 import BeautifulSoup
+
 pd.options.display.max_columns = 150
 
 # connection information for the database
-POSTGRES_USER = os.environ.get('POSTGRES_USER')
-POSTGRES_PASSWORD = os.environ.get('POSTGRES_PASSWORD')
+POSTGRES_USER = os.environ.get("POSTGRES_USER")
+POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
 POSTGRES_IP = "192.168.0.118"
 POSTGRES_PORT = 5432
-POSTGRES_DB = 'postgres'
+POSTGRES_DB = "postgres"
 
 # requests + espn auth data
-USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Safari/537.36'
+USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Safari/537.36"
 ESPN_SWID = os.environ["ESPN_SWID"]
 ESPN_S2 = os.environ["ESPN_S2"]
 
 # ## Get Roster Data
 # This will rip the roster information from ESPN and save it to a local CSV file.
-ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/2019/segments/0/leagues/{league_id}?view=mDraftDetail&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
-LEAGUE_URL = "http://fantasy.espn.com/baseball/league/rosters?leagueId={league_id}"
-LEAGUE_ID = 15594
+ESPN_ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/2019/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
+ESPN_PLAYERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/2019/segments/0/leagues/{league_id}?scoringPeriodId=0&view=kona_player_info"
+ESPN_LEAGUE_ID = 15594
 
 
 def output_path(file_name):
     """
     Retrieves the global output folder and any files in it.
     """
-    return os.path.join(os.environ.get('AIRFLOW_HOME'), 'output', file_name)
+    return os.path.join(os.environ.get("AIRFLOW_HOME"), "output", file_name)
 
 
-def get_espn_data():
+def get_espn_headers():
+    """
+    Returns the correct set of headers for the ESPN request.
+    """
+    return {
+        'X-Fantasy-Platform': 'kona-PROD-955c44b415a96e5c22bf97778ec0ce85dc325233'
+    }
+
+
+def get_espn_cookies():
+    """
+    Returns the appropriate cookies for ESPN.
+    """
+    return {
+        'swid': ESPN_SWID,
+        'espn_s2': ESPN_S2
+    }
+
+
+def get_espn_league_data():
     """
     Looks up the league's roster data and returns it in JSON format.
 
@@ -57,12 +77,54 @@ def get_espn_data():
     - transaction counter
     - draft data.
     """
-    rosters_json_text = requests.get(ROSTERS_URL.format(league_id=LEAGUE_ID)).text
-    rosters_json = json.loads(rosters_json_text)
+    league_data_raw = requests.get(
+        ESPN_ROSTERS_URL.format(league_id=ESPN_LEAGUE_ID),
+        cookies=get_espn_cookies(),
+        headers=get_espn_headers()
+    )
+    rosters_json = json.loads(league_data_raw.text)
 
     out_file_path = output_path("rosters.json")
-    with open(out_file_path, "w", newline='') as out_file:
+    with open(out_file_path, "w", newline="") as out_file:
         json.dump(rosters_json, out_file, indent=2)
+
+
+def get_espn_player_data():
+    """
+    Use the ESPN player API in order to get information about the available players.
+    """
+    player_data = {
+        "players": {
+            "filterSlotIds": {"value": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 19]},
+            "limit": 5000,
+            "offset": 0,
+            "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
+            "sortDraftRanks": {"sortPriority": 100, "sortAsc": True, "value": "STANDARD"},
+            "filterStatsForTopScoringPeriodIds": {
+                "value": 1,
+                "additionalValue": [
+                    "002019",
+                    "102019",
+                    "002018",
+                    "012019",
+                    "022019",
+                    "032019",
+                    "042019",
+                ],
+            },
+        }
+    }
+    headers = {"X-Fantasy-Filter": json.dumps(player_data)}
+    t = requests.get(
+        ESPN_PLAYERS_URL.format(league_id=ESPN_LEAGUE_ID),
+        headers=headers,
+        cookies=get_espn_cookies()
+    )
+    players_json = json.loads(t.text)
+
+    out_file_path = output_path("players.json")
+    with open(out_file_path, "w", newline="") as out_file:
+        json.dump(players_json, out_file, indent=2)
 
 
 def parse_array_from_fangraphs_html(input_html, out_file_name):
@@ -72,13 +134,13 @@ def parse_array_from_fangraphs_html(input_html, out_file_name):
     # parse input
     soup = BeautifulSoup(input_html, "lxml")
     table = soup.find("table", {"class": "rgMasterTable"})
-    
+
     # get headers
     headers_html = table.find("thead").find_all("th")
     headers = []
     for header in headers_html:
         headers.append(header.text)
-    
+
     # get rows
     rows = []
     rows_html = table.find("tbody").find_all("tr")
@@ -89,7 +151,7 @@ def parse_array_from_fangraphs_html(input_html, out_file_name):
             for cell in cells:
                 row_data.append(cell.text)
             rows.append(row_data)
-    
+
     # write to CSV file
     out_file_path = output_path(out_file_name)
     with open(out_file_path, "w") as out_file:
@@ -112,36 +174,36 @@ def league(team_name):
     """
 
     LEAGUES = {
-        'Angels': 'AL',
-        'Astros': 'AL',
-        'Athletics': 'AL',
-        'Blue Jays': 'AL',
-        'Braves': 'NL',
-        'Brewers': 'NL',
-        'Cardinals': 'NL',
-        'Cubs': 'NL',
-        'Diamondbacks': 'NL',
-        'Dodgers': 'NL',
-        'Giants': 'NL',
-        'Indians': 'AL',
-        'Mariners': 'AL',
-        'Marlins': 'NL',
-        'Mets': 'NL',
-        'Nationals': 'NL',
-        'Orioles': 'AL',
-        'Padres': 'NL',
-        'Phillies': 'NL',
-        'Pirates': 'NL',
-        'Rangers': 'AL',
-        'Rays': 'AL',
-        'Red Sox': 'AL',
-        'Reds': 'NL',
-        'Rockies': 'NL',
-        'Royals': 'AL',
-        'Tigers': 'AL',
-        'Twins': 'AL',
-        'White Sox': 'AL',
-        'Yankees': 'AL'
+        "Angels": "AL",
+        "Astros": "AL",
+        "Athletics": "AL",
+        "Blue Jays": "AL",
+        "Braves": "NL",
+        "Brewers": "NL",
+        "Cardinals": "NL",
+        "Cubs": "NL",
+        "Diamondbacks": "NL",
+        "Dodgers": "NL",
+        "Giants": "NL",
+        "Indians": "AL",
+        "Mariners": "AL",
+        "Marlins": "NL",
+        "Mets": "NL",
+        "Nationals": "NL",
+        "Orioles": "AL",
+        "Padres": "NL",
+        "Phillies": "NL",
+        "Pirates": "NL",
+        "Rangers": "AL",
+        "Rays": "AL",
+        "Red Sox": "AL",
+        "Reds": "NL",
+        "Rockies": "NL",
+        "Royals": "AL",
+        "Tigers": "AL",
+        "Twins": "AL",
+        "White Sox": "AL",
+        "Yankees": "AL",
     }
 
     return LEAGUES.get(team_name)
@@ -154,153 +216,206 @@ def main():
     """
 
     # get the rosters and write them to disk
-    get_espn_data()
+    get_espn_league_data()
+    get_espn_player_data()
 
     # static urls
     season = datetime.datetime.now().year
-    PITCHERS_URL = "https://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=0&type=c,36,37,38,40,-1,120,121,217,-1,24,41,42,43,44,-1,117,118,119,-1,6,45,124,-1,62,122,13&season={season}&month=0&season1={season}&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_100000".format(season=season)
-    BATTERS_URL = "https://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=0&type=8&season={season}&month=0&season1={season}&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_10000".format(season=season)
+    PITCHERS_URL = "https://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=0&type=c,36,37,38,40,-1,120,121,217,-1,24,41,42,43,44,-1,117,118,119,-1,6,45,124,-1,62,122,13&season={season}&month=0&season1={season}&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_100000".format(
+        season=season
+    )
+    BATTERS_URL = "https://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=0&type=8&season={season}&month=0&season1={season}&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_10000".format(
+        season=season
+    )
 
     # # request the data
     pitchers_html = requests.get(PITCHERS_URL).text
     batters_html = requests.get(BATTERS_URL).text
 
-
     # Now that we have all of the player data, I'm writing these out to a CSV file if I want to load them again later without having to run the requests to those pages once more.
-    parse_array_from_fangraphs_html(batters_html, 'batters_actuals.csv')
-    parse_array_from_fangraphs_html(pitchers_html, 'pitchers_actuals.csv')
-
+    parse_array_from_fangraphs_html(batters_html, "batters_actuals.csv")
+    parse_array_from_fangraphs_html(pitchers_html, "pitchers_actuals.csv")
 
     # ## Get Projections
-    # 
+    #
     # For this part, we need to call some external bash code here, because the form data is too big to reasonably bring into the script here. Check out the [original blog post](https://zmsy.co/blog/fantasy-baseball/) on how to configure this for your own purposes.
-    subprocess.check_call('./get_fangraphs.sh', shell=True)
+    subprocess.check_call("./get_fangraphs.sh", shell=True)
 
     # ## Read Data Into Pandas
-    # 
+    #
     # Load those CSV files using read_csv() in pandas. Since some of the percentage values are stored as strings, we need to parse those into floats.
     # We want to create two dataframes here:
-    # 
+    #
     # - `dfb` - Batters Dataframe
     # - `dfp` - Pitchers Dataframe
-    df_rost = pd.read_csv(output_path('rosters.csv'))
-    dfb_act = pd.read_csv(output_path('batters_actuals.csv'))
-    dfp_act = pd.read_csv(output_path('pitchers_actuals.csv'))
+    df_rost = pd.read_csv(output_path("rosters.csv"))
+    dfb_act = pd.read_csv(output_path("batters_actuals.csv"))
+    dfp_act = pd.read_csv(output_path("pitchers_actuals.csv"))
 
     # apply that to all percentage values in the dataframes
     for col in dfb_act.columns:
-        if '%' in col:
+        if "%" in col:
             dfb_act[col] = dfb_act[col].apply(lambda x: parse_pctg(x))
-            
+
     for col in dfp_act.columns:
-        if '%' in col:
+        if "%" in col:
             dfp_act[col] = dfp_act[col].apply(lambda x: parse_pctg(x))
 
     # rename columns to remove % (causes issues with postgres insert)
     df_rost.columns = [x.lower() for x in df_rost.columns]
-    dfb_act.columns = [x.replace("%", "_pct").replace('+', '_plus').replace("/", "-").lower() for x in dfb_act.columns]
-    dfp_act.columns = [x.replace("%", "_pct").replace('+', '_plus').replace("/", "-").lower() for x in dfp_act.columns]
+    dfb_act.columns = [
+        x.replace("%", "_pct").replace("+", "_plus").replace("/", "-").lower()
+        for x in dfb_act.columns
+    ]
+    dfp_act.columns = [
+        x.replace("%", "_pct").replace("+", "_plus").replace("/", "-").lower()
+        for x in dfp_act.columns
+    ]
 
-
-    with open(output_path('batters_projections.html'), 'r') as bhtml:
+    with open(output_path("batters_projections.html"), "r") as bhtml:
         btxt = bhtml.read()
-        dfb_proj = pd.read_html(btxt)[-1]  # read_html returns ALL tables, we just want the last one.
+        dfb_proj = pd.read_html(btxt)[
+            -1
+        ]  # read_html returns ALL tables, we just want the last one.
         dfb_proj.dropna(axis=1, inplace=True)
 
-    with open(output_path('pitchers_projections.html'), 'r') as phtml:
+    with open(output_path("pitchers_projections.html"), "r") as phtml:
         ptxt = phtml.read()
         dfp_proj = pd.read_html(ptxt)[-1]
         dfp_proj.dropna(axis=1, inplace=True)
 
     # rename columns and apply naming scheme
-    dfb_proj.columns = [x.replace("%", "_pct").replace('/', '-').lower() for x in dfb_proj.columns]
-    dfp_proj.columns = [x.replace("%", "_pct").replace('/', '-').lower() for x in dfp_proj.columns]
+    dfb_proj.columns = [x.replace("%", "_pct").replace("/", "-").lower() for x in dfb_proj.columns]
+    dfp_proj.columns = [x.replace("%", "_pct").replace("/", "-").lower() for x in dfp_proj.columns]
 
     # join the datasets together. we want one
     # for batters and one for pitchers, with
     # roster information in both of them.
-    dfb = pd.merge(dfb_proj, df_rost, how='left', on='name', suffixes=('.p', '.r'))
-    dfb = pd.merge(dfb, dfb_act, how='left', on='name', suffixes=('', '.a'))
+    dfb = pd.merge(dfb_proj, df_rost, how="left", on="name", suffixes=(".p", ".r"))
+    dfb = pd.merge(dfb, dfb_act, how="left", on="name", suffixes=("", ".a"))
 
-    dfp = pd.merge(dfp_proj, df_rost, how='left', on='name', suffixes=('.p', '.r'))
-    dfp = pd.merge(dfp, dfp_act, how='left', on='name', suffixes=('', '.a'))
-
+    dfp = pd.merge(dfp_proj, df_rost, how="left", on="name", suffixes=(".p", ".r"))
+    dfp = pd.merge(dfp, dfp_act, how="left", on="name", suffixes=("", ".a"))
 
     # ## Filter and Qualify Information
-    # 
+    #
     # The dataframes for pitchers/batters contain a lot of noise for things that we don't really care about, or won't actually have much of an effect on our league.
     # apply some filters so we can get rid of players who won't play.
     # minimum plate appearances or innings pitched
 
-    dfb = dfb[dfb['pa'] > 100]
-    dfp = dfp[dfp['ip'] > 20]
-    dfb['league'] = dfb['team'].apply(lambda x: league(x))
-    dfp['league'] = dfp['team'].apply(lambda x: league(x))
+    dfb = dfb[dfb["pa"] > 100]
+    dfp = dfp[dfp["ip"] > 20]
+    dfb["league"] = dfb["team"].apply(lambda x: league(x))
+    dfp["league"] = dfp["team"].apply(lambda x: league(x))
 
     # rearrange columns for readability and filter some out
     # keep only ones relevant for our league
-    dfb_columns = ['#', 'name', 'squad', 'team', 'league', 'pa', 'pa.a', 'ab', 'h', 'so', 'k_pct', 'hr', 'hr.a', 'avg', 'iso', 'babip', 'wrc_plus', 'avg.a', 'obp', 'obp.a', 'woba', 'woba.a', 'slg', 'slg.a', 'ops', 'bb_pct', 'bb']
+    dfb_columns = [
+        "#",
+        "name",
+        "squad",
+        "team",
+        "league",
+        "pa",
+        "pa.a",
+        "ab",
+        "h",
+        "so",
+        "k_pct",
+        "hr",
+        "hr.a",
+        "avg",
+        "iso",
+        "babip",
+        "wrc_plus",
+        "avg.a",
+        "obp",
+        "obp.a",
+        "woba",
+        "woba.a",
+        "slg",
+        "slg.a",
+        "ops",
+        "bb_pct",
+        "bb",
+    ]
 
-    dfp_columns = ['#', 'name', 'squad', 'team', 'league', 'ip', 'era', 'er', 'hr', 'so', 'bb', 'whip', 'k-9', 'bb-9', 'fip', 'k-9.a', 'bb-9.a', 'k-bb', 'k_pct', 'whip.a', 'so.a', 'lob_pct', 'era.a', 'fip.a', 'e-f', 'xfip', 'siera', 'ip.a']
+    dfp_columns = [
+        "#",
+        "name",
+        "squad",
+        "team",
+        "league",
+        "ip",
+        "era",
+        "er",
+        "hr",
+        "so",
+        "bb",
+        "whip",
+        "k-9",
+        "bb-9",
+        "fip",
+        "k-9.a",
+        "bb-9.a",
+        "k-bb",
+        "k_pct",
+        "whip.a",
+        "so.a",
+        "lob_pct",
+        "era.a",
+        "fip.a",
+        "e-f",
+        "xfip",
+        "siera",
+        "ip.a",
+    ]
 
     # filter to just the columns we want
     dfb = dfb[dfb_columns]
     dfp = dfp[dfp_columns]
-
 
     # ## Calculate Scores
     # The individual players in both the batting and pitching groups will get scored based on the entirety of the sample available. We calculate a composite score by taking the individual z-scores in each of the categories and trying to determine which players are above average.
 
     # a 1 represents a positive number, i.e. higher is better
     # a -1 represents negative, meaning lower is better
-    dfb_score_cols = {
-        'pa': 1,
-        'k_pct': -1,
-        'hr': 1,
-        'iso': 1,
-        'obp': 1,
-        'woba': 1,
-        'slg': 1
-    }
+    dfb_score_cols = {"pa": 1, "k_pct": -1, "hr": 1, "iso": 1, "obp": 1, "woba": 1, "slg": 1}
 
-    dfp_score_cols = {
-        'ip': 1,
-        'era': -1,
-        'hr': -1,
-        'so': 1,
-        'whip': -1,
-        'fip': -1,
-        'k-9': 1
-    }
+    dfp_score_cols = {"ip": 1, "era": -1, "hr": -1, "so": 1, "whip": -1, "fip": -1, "k-9": 1}
 
     for col in dfb_score_cols.keys():
         col_score = col + "_score"
-        dfb[col_score] = (dfb[col] - dfb[col].mean()) / dfb[col].std(ddof=0) * dfb_score_cols.get(col)
+        dfb[col_score] = (
+            (dfb[col] - dfb[col].mean()) / dfb[col].std(ddof=0) * dfb_score_cols.get(col)
+        )
 
     for col in dfp_score_cols.keys():
         col_score = col + "_score"
-        dfp[col_score] = (dfp[col] - dfp[col].mean()) / dfp[col].std(ddof=0) * dfp_score_cols.get(col)
-
+        dfp[col_score] = (
+            (dfp[col] - dfp[col].mean()) / dfp[col].std(ddof=0) * dfp_score_cols.get(col)
+        )
 
     # ## Write Information Back to Database
-    # 
+    #
     # Once the table is available in the database, then we can query it again using other tools to make our lives easier. Then it can be used to display the information about each player in the Superset DB.
-    engine = sqlalchemy.create_engine("postgres://{user}:{password}@{host}:{port}/{db}".format(
-        user=POSTGRES_USER,
-        password=POSTGRES_PASSWORD,
-        host=POSTGRES_IP,
-        port=POSTGRES_PORT,
-        db=POSTGRES_DB
-    ))
+    engine = sqlalchemy.create_engine(
+        "postgres://{user}:{password}@{host}:{port}/{db}".format(
+            user=POSTGRES_USER,
+            password=POSTGRES_PASSWORD,
+            host=POSTGRES_IP,
+            port=POSTGRES_PORT,
+            db=POSTGRES_DB,
+        )
+    )
 
     # open a connection and write the info back to the database
     conn = engine.connect()
-    dfb.to_sql('batters', conn, schema='fantasy', if_exists='replace')
-    dfb.to_sql('pitchers', conn, schema='fantasy', if_exists='replace')
+    dfb.to_sql("batters", conn, schema="fantasy", if_exists="replace")
+    dfb.to_sql("pitchers", conn, schema="fantasy", if_exists="replace")
     conn.close()
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
 
