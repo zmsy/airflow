@@ -19,6 +19,16 @@ dag = airflow.DAG('fantasy_baseball', default_args=default_args)
 
 t1 = PythonOperator(
     dag=dag,
-    task_id = 'collect_data',
-    python_callable=fantasy.main
+    task_id = 'get_espn_league_data',
+    python_callable=fantasy.get_espn_league_data,
+    default_args=default_args
 )
+
+t2 = PythonOperator(
+    dag=dag,
+    task_id = 'get_espn_player_data',
+    python_callable=fantasy.get_espn_player_data,
+    default_args=default_args
+)
+
+t2.set_upstream(t1)
