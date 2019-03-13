@@ -228,26 +228,23 @@ def load_teams_to_postgres():
 
     # loop through and insert each member into the table
     for team in team_data:
-        member_insert = tuple(
+        team_insert = tuple(
             [
                 team.get("abbrev"),
                 int(team.get("divisionId", 0)),
                 team.get("id"),
                 team.get("logo"),
                 team.get("logoType"),
-
                 team.get("nickname"),
                 int(team.get("playoffSeed", 0)),
                 team.get("primaryOwner"),
                 float(team.get("record", {}).get("overall", {}).get("gamesBack", 0.0)),
                 int(team.get("record", {}).get("overall", {}).get("wins", 0.0)),
-
                 int(team.get("record", {}).get("overall", {}).get("losses", 0.0)),
                 int(team.get("record", {}).get("overall", {}).get("ties", 0.0)),
                 int(team.get("transactionCounter", {}).get("acquisitions", 0)),
                 int(team.get("transactionCounter", {}).get("drops", 0)),
                 int(team.get("transactionCounter", {}).get("trades", 0)),
-
                 int(team.get("transactionCounter", {}).get("moveToActive", 0)),
                 int(team.get("transactionCounter", {}).get("moveToIR", 0)),
             ]
@@ -260,8 +257,78 @@ def load_teams_to_postgres():
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
             """,
-            member_insert,
+            team_insert,
         )
+
+    # commit changes and close the connection
+    conn.commit()
+    conn.close()
+
+
+def load_rosters_to_postgres():
+    """
+    Load the roster for each team to the database.
+    """
+    conn = get_postgres_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        DROP TABLE IF EXISTS fantasy.rosters;
+        CREATE TABLE IF NOT EXISTS fantasy.rosters (
+
+            id serial primary key,
+            team_espn_id integer,
+            acquisitionDate timestamp,
+            acquisitionType varchar(24),
+            injuryStatus varchar(24),
+
+            playerId integer,
+            defaultPositionId integer,
+            active boolean,
+            droppable boolean,
+            firstName varchar(64),
+
+            fullName varchar(128),
+            lastName varchar(64)
+        );
+        GRANT SELECT ON fantasy.rosters TO PUBLIC;
+        """
+    )
+
+    # load the member data from the json output.
+    date_str = str(datetime.date.today())
+    with open(output_path("rosters" + date_str + ".json")) as json_file:
+        roster_data = json.load(json_file)
+        team_data = roster_data["teams"]
+
+    # loop through the teams and load rosters for each
+    for team in team_data:
+        for entry in team["roster"]["entries"]:
+            roster_insert = tuple([
+                team.get("id"),
+                datetime.datetime.fromtimestamp(entry["acquisitionDate"] / 1000),
+                entry.get("acquisitionType"),
+                entry.get("injuryStatus"),
+                entry.get("playerId"),
+                entry.get("playerPoolEntry", {}).get("player", {}).get("defaultPositionId"),
+                entry.get("playerPoolEntry", {}).get("player", {}).get("active"),
+                entry.get("playerPoolEntry", {}).get("player", {}).get("droppable"),
+                entry.get("playerPoolEntry", {}).get("player", {}).get("firstName"),
+                entry.get("playerPoolEntry", {}).get("player", {}).get("fullName"),
+                entry.get("playerPoolEntry", {}).get("player", {}).get("lastName")
+            ])
+
+
+            # execute the insert
+            cur.execute(
+                """
+                INSERT INTO fantasy.rosters VALUES (
+                    DEFAULT, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s
+                )
+                """,
+                roster_insert,
+            )
 
     # commit changes and close the connection
     conn.commit()
@@ -271,4 +338,5 @@ def load_teams_to_postgres():
 if __name__ == "__main__":
     # get_espn_league_data()
     # load_league_members_to_postgres()
-    load_teams_to_postgres()
+    # load_teams_to_postgres()
+    load_rosters_to_postgres()
