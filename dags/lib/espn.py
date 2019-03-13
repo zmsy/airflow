@@ -174,7 +174,94 @@ def load_league_members_to_postgres():
             ]
         )
 
-        cur.execute("INSERT INTO fantasy.members VALUES (DEFAULT, %s, %s, %s, %s, %s, %s)", member_insert)
+        cur.execute(
+            "INSERT INTO fantasy.members VALUES (DEFAULT, %s, %s, %s, %s, %s, %s)", member_insert
+        )
+
+    # commit changes and close the connection
+    conn.commit()
+    conn.close()
+
+
+def load_teams_to_postgres():
+    """
+    Loads the list of teams in the rosters.json file to postgres.
+    """
+    conn = get_postgres_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        DROP TABLE IF EXISTS fantasy.teams;
+        CREATE TABLE IF NOT EXISTS fantasy.teams (
+
+            id serial primary key,
+            abbrev varchar(10),
+            divisionId integer,
+            espn_id integer,
+            logo varchar(255),
+
+            logoType varchar(64),
+            nickname varchar(64),
+            playoffSeed integer,
+            primaryOwner varchar(64),
+            gamesBack numeric(6, 2),
+
+            wins integer,
+            losses integer,
+            ties integer,
+            acquisitions integer,
+            drops integer,
+
+            trades integer,
+            moveToActive integer,
+            moveToIR integer
+        );
+        GRANT SELECT ON fantasy.teams TO PUBLIC;
+        """
+    )
+
+    # load the member data from the json output.
+    date_str = str(datetime.date.today())
+    with open(output_path("rosters" + date_str + ".json")) as json_file:
+        roster_data = json.load(json_file)
+        team_data = roster_data["teams"]
+
+    # loop through and insert each member into the table
+    for team in team_data:
+        member_insert = tuple(
+            [
+                team.get("abbrev"),
+                int(team.get("divisionId", 0)),
+                team.get("id"),
+                team.get("logo"),
+                team.get("logoType"),
+
+                team.get("nickname"),
+                int(team.get("playoffSeed", 0)),
+                team.get("primaryOwner"),
+                float(team.get("record", {}).get("overall", {}).get("gamesBack", 0.0)),
+                int(team.get("record", {}).get("overall", {}).get("wins", 0.0)),
+
+                int(team.get("record", {}).get("overall", {}).get("losses", 0.0)),
+                int(team.get("record", {}).get("overall", {}).get("ties", 0.0)),
+                int(team.get("transactionCounter", {}).get("acquisitions", 0)),
+                int(team.get("transactionCounter", {}).get("drops", 0)),
+                int(team.get("transactionCounter", {}).get("trades", 0)),
+
+                int(team.get("transactionCounter", {}).get("moveToActive", 0)),
+                int(team.get("transactionCounter", {}).get("moveToIR", 0)),
+            ]
+        )
+
+        cur.execute(
+            """
+            INSERT INTO fantasy.teams VALUES (
+                DEFAULT, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+            """,
+            member_insert,
+        )
 
     # commit changes and close the connection
     conn.commit()
@@ -183,4 +270,5 @@ def load_league_members_to_postgres():
 
 if __name__ == "__main__":
     # get_espn_league_data()
-    load_league_members_to_postgres()
+    # load_league_members_to_postgres()
+    load_teams_to_postgres()
