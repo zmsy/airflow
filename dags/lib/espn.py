@@ -384,9 +384,58 @@ def load_players_to_postgres():
         players_data = json.load(json_file)
         players = players_data["players"]
 
+    # loop through and insert each member into the table
+    for player in players:
+        player_insert = tuple(
+            [
+                player.get("id"),
+                player.get("onTeamId"),
+                player.get("player", {}).get("active", False),
+                player.get("player", {}).get("defaultPositionId"),
+
+                player.get("player", {}).get("draftRanksByRankType", {}).get("STANDARD", {}).get("auctionValue"),
+                player.get("player", {}).get("draftRanksByRankType", {}).get("STANDARD", {}).get("rank"),
+                player.get("player", {}).get("draftRanksByRankType", {}).get("STANDARD", {}).get("rankType"),
+                player.get("player", {}).get("droppable", False),
+                player.get("player", {}).get("firstName"),
+
+                player.get("player", {}).get("fullName"),
+                player.get("player", {}).get("injured", False),
+                player.get("player", {}).get("injuryStatus"),
+                player.get("player", {}).get("jersey"),
+                player.get("player", {}).get("lastName"),
+
+                player.get("player", {}).get("ownership", {}).get("averageDraftPosition"),
+                player.get("player", {}).get("ownership", {}).get("percentOwned"),
+                player.get("player", {}).get("ownership", {}).get("percentStarted"),
+                player.get("player", {}).get("proTeamId"),
+                player.get("rosterLocked"),
+
+                player.get("status"),
+                player.get("tradeLocked")
+            ]
+        )
+
+        cur.execute(
+            """
+            INSERT INTO fantasy.players VALUES (
+                DEFAULT, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s
+            )
+            """,
+            player_insert,
+        )
+
+    # commit changes and close the connection
+    conn.commit()
+    conn.close()
+
 
 if __name__ == "__main__":
     # get_espn_league_data()
+    # get_espn_player_data()
     # load_league_members_to_postgres()
     # load_teams_to_postgres()
-    load_rosters_to_postgres()
+    # load_rosters_to_postgres()
+    load_players_to_postgres()
