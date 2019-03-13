@@ -335,6 +335,56 @@ def load_rosters_to_postgres():
     conn.close()
 
 
+def load_players_to_postgres():
+    """
+    Loads the player entries to postgres.
+    """
+    conn = get_postgres_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        DROP TABLE IF EXISTS fantasy.players;
+        CREATE TABLE IF NOT EXISTS fantasy.players (
+
+            id serial primary key,
+            espn_id integer,
+            onTeamId integer,
+            active boolean,
+            defaultPositionId integer,
+
+            auctionValue integer,
+            draftRank integer,
+            draftRankType varchar(24),
+            droppable boolean,
+            firstName varchar(64),
+
+            fullName varchar(128),
+            injured boolean,
+            injuryStatus varchar(24),
+            jersey varchar(12),
+            lastName varchar(64),
+
+            averageDraftPosition numeric(6, 2),
+            percentOwned numeric(6, 2),
+            percentStarted numeric(6, 2),
+            proTeamId integer,
+            rosterLocked boolean,
+
+            status varchar(12),
+            tradeLocked boolean
+
+        );
+        GRANT SELECT ON fantasy.players TO PUBLIC;
+        """
+    )
+
+    # load the member data from the json output.
+    date_str = str(datetime.date.today())
+    with open(output_path("players" + date_str + ".json")) as json_file:
+        players_data = json.load(json_file)
+        players = players_data["players"]
+
+
 if __name__ == "__main__":
     # get_espn_league_data()
     # load_league_members_to_postgres()
