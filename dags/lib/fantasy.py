@@ -26,16 +26,6 @@ POSTGRES_IP = "192.168.0.118"
 POSTGRES_PORT = 5432
 POSTGRES_DB = "postgres"
 
-# requests + espn auth data
-ESPN_SWID = os.environ["ESPN_SWID"]
-ESPN_S2 = os.environ["ESPN_S2"]
-
-# ## Get Roster Data
-# This will rip the roster information from ESPN and save it to a local CSV file.
-ESPN_ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/2019/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
-ESPN_PLAYERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/2019/segments/0/leagues/{league_id}?scoringPeriodId=0&view=kona_player_info"
-ESPN_LEAGUE_ID = 15594
-
 
 def output_path(file_name):
     """

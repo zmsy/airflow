@@ -1,5 +1,6 @@
 import airflow
 from airflow.operators.python_operator import PythonOperator
+from airflow.operators.bash_operator import BashOperator
 from datetime import datetime, timedelta
 import lib.espn as espn
 
@@ -42,6 +43,13 @@ t4 = PythonOperator(
     dag=dag,
     task_id = 'load_teams_to_postgres',
     python_callable=espn.load_league_members_to_postgres,
+    default_args=default_args
+)
+
+t5 = BashOperator(
+    dag=dag,
+    task_id="get_all_fangraphs_projections",
+    bash_command="bash get_fangraphs.sh",
     default_args=default_args
 )
 
