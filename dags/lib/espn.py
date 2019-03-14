@@ -432,10 +432,54 @@ def load_players_to_postgres():
     conn.close()
 
 
+def load_watchlists_to_postgres():
+    """
+    Loads each team's watchlist into postgres.
+    """
+    conn = get_postgres_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        DROP TABLE IF EXISTS fantasy.watchlists;
+        CREATE TABLE fantasy.watchlists (
+            id serial primary key,
+            team_espn_id integer,
+            player_espn_id integer
+        );
+        GRANT SELECT ON fantasy.watchlists TO PUBLIC;
+        """
+    )
+
+    # load the member data from the json output.
+    date_str = str(datetime.date.today())
+    with open(output_path("rosters" + date_str + ".json")) as json_file:
+        roster_data = json.load(json_file)
+        team_data = roster_data["teams"]
+
+    # loop through the teams and load watchlists for each
+    for team in team_data:
+        for entry in team.get("watchList", []):
+            roster_insert = tuple([
+                team.get("id"),
+                entry
+            ])
+
+
+            # execute the insert
+            cur.execute(
+                "INSERT INTO fantasy.watchlists VALUES (DEFAULT, %s, %s)",
+                roster_insert,
+            )
+
+    # commit changes and close the connection
+    conn.commit()
+    conn.close()
+
 if __name__ == "__main__":
     # get_espn_league_data()
-    # get_espn_player_data()
+    get_espn_player_data()
     # load_league_members_to_postgres()
     # load_teams_to_postgres()
     # load_rosters_to_postgres()
-    load_players_to_postgres()
+    # load_players_to_postgres()
+    # load_watchlists_to_postgres()
