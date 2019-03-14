@@ -57,3 +57,4 @@ t5 = PythonOperator(
 t2.set_upstream(t1)
 t3.set_upstream(t2)
 t4.set_upstream(t2)
+t5.set_upstream(t1)

@@ -121,7 +121,7 @@ def get_all_fangraphs_pages():
     Returns all of the 4 different Fangraphs Depth Charts projections
     from beginning of season and RoS.
     """
-    subprocess.check_call("./get_fangraphs.sh", shell=True)
+    subprocess.check_call("${AIRFLOW_HOME}/dags/lib/get_fangraphs.sh", shell=True)
 
 
 def main():
@@ -328,5 +328,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    get_all_fangraphs_pages()
+    # main()
 
