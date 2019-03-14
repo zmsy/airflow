@@ -3,6 +3,7 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.operators.bash_operator import BashOperator
 from datetime import datetime, timedelta
 import lib.espn as espn
+import lib.fantasy as fantasy
 
 
 default_args = {
@@ -46,10 +47,10 @@ t4 = PythonOperator(
     default_args=default_args
 )
 
-t5 = BashOperator(
+t5 = PythonOperator(
     dag=dag,
     task_id="get_all_fangraphs_projections",
-    bash_command="bash get_fangraphs.sh",
+    python_callable=fantasy.get_all_fangraphs_pages,
     default_args=default_args
 )
 

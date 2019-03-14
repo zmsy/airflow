@@ -116,6 +116,14 @@ def league(team_name):
     return LEAGUES.get(team_name)
 
 
+def get_all_fangraphs_pages():
+    """
+    Returns all of the 4 different Fangraphs Depth Charts projections
+    from beginning of season and RoS.
+    """
+    subprocess.check_call("./get_fangraphs.sh", shell=True)
+
+
 def main():
     """
     Run the main loop in order to retrieve all of the data for both
