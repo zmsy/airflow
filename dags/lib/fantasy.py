@@ -34,6 +34,23 @@ def output_path(file_name):
     return os.path.join(os.environ.get("AIRFLOW_HOME"), "output", file_name)
 
 
+def get_sqlalchemy_engine():
+    """
+    Create and return a SQLAlchemy engine for inserting into postgres.
+    """
+    # ## Write Information Back to Database
+    #
+    return sqlalchemy.create_engine(
+        "postgres://{user}:{password}@{host}:{port}/{db}".format(
+            user=POSTGRES_USER,
+            password=POSTGRES_PASSWORD,
+            host=POSTGRES_IP,
+            port=POSTGRES_PORT,
+            db=POSTGRES_DB,
+        )
+    )
+
+
 def parse_array_from_fangraphs_html(input_html, out_file_name):
     """
     Take a HTML stats page from fangraphs and parse it out to a CSV file.
@@ -65,6 +82,28 @@ def parse_array_from_fangraphs_html(input_html, out_file_name):
         writer = csv.writer(out_file)
         writer.writerow(headers)
         writer.writerows(rows)
+
+
+def get_fangraphs_actuals():
+    """
+    Return the actuals for each player.
+    """
+    # static urls
+    season = datetime.datetime.now().year
+    PITCHERS_URL = "https://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=0&type=c,36,37,38,40,-1,120,121,217,-1,24,41,42,43,44,-1,117,118,119,-1,6,45,124,-1,62,122,13&season={season}&month=0&season1={season}&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_100000".format(
+        season=season
+    )
+    BATTERS_URL = "https://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=0&type=8&season={season}&month=0&season1={season}&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_10000".format(
+        season=season
+    )
+
+    # # request the data
+    pitchers_html = requests.get(PITCHERS_URL).text
+    batters_html = requests.get(BATTERS_URL).text
+
+    # Now that we have all of the player data, I'm writing these out to a CSV file if I want to load them again later without having to run the requests to those pages once more.
+    parse_array_from_fangraphs_html(batters_html, "batters_actuals.csv")
+    parse_array_from_fangraphs_html(pitchers_html, "pitchers_actuals.csv")
 
 
 def parse_pctg(value):
@@ -124,7 +163,7 @@ def get_all_fangraphs_pages():
     subprocess.check_call("${AIRFLOW_HOME}/dags/lib/get_fangraphs.sh", shell=True)
 
 
-def parse_fangraphs_projections_from_html(html_file):
+def post_fangraphs_projections_html_to_postgres(html_file):
     """
     Input one of the fangraphs html files and rip the first table we find in it.
     Writes the outputs to a csv in the output folder.
@@ -135,50 +174,44 @@ def parse_fangraphs_projections_from_html(html_file):
         all_df = pd.read_html(btxt)
         df = all_df[-1]
 
+    # get rid of na and clean column names
     df.dropna(axis=1, inplace=True)
-    csv_name = output_path(
-        os.path.splitext(os.path.basename(html_file))[0]
-         + ".csv"
-    )
-    df.to_csv(csv_name)
-    
+    df.columns = [x.lower() for x in df.columns]
+    df.columns = [x.replace("%", "_pct").replace("/", "-").lower() for x in df.columns]
+    for col in df.columns:
+        if "_pct" in col:
+            df[col] = df[col].apply(lambda x: parse_pctg(x))
+
+    # create sqlalchemy engine for putting dataframe to postgres
+    engine = get_sqlalchemy_engine()
+    conn = engine.connect()
+    table_name = os.path.splitext(os.path.basename(html_file))[0]
+    df.to_sql(table_name, conn, schema="fantasy", if_exists="replace")
+    conn.execute("GRANT SELECT ON fantasy.{} TO PUBLIC".format(table_name))
+    conn.close()
+
+
+def post_all_fangraphs_projections_to_postgres():
+    """
+    Invoke post_fangraphs_projections_html_to_postgres for each of the
+    projections that we want.
+    """
+    post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts.html"))
+    post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts_ros.html"))
+    post_fangraphs_projections_html_to_postgres(output_path("pitchers_projections_depth_charts.html"))
+    post_fangraphs_projections_html_to_postgres(output_path("pitchers_projections_depth_charts_ros.html"))
+
 
 def main():
     """
     Run the main loop in order to retrieve all of the data for both
     batting and pitching.
     """
-
-    # static urls
-    season = datetime.datetime.now().year
-    PITCHERS_URL = "https://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=0&type=c,36,37,38,40,-1,120,121,217,-1,24,41,42,43,44,-1,117,118,119,-1,6,45,124,-1,62,122,13&season={season}&month=0&season1={season}&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_100000".format(
-        season=season
-    )
-    BATTERS_URL = "https://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=0&type=8&season={season}&month=0&season1={season}&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_10000".format(
-        season=season
-    )
-
-    # # request the data
-    pitchers_html = requests.get(PITCHERS_URL).text
-    batters_html = requests.get(BATTERS_URL).text
-
-    # Now that we have all of the player data, I'm writing these out to a CSV file if I want to load them again later without having to run the requests to those pages once more.
-    parse_array_from_fangraphs_html(batters_html, "batters_actuals.csv")
-    parse_array_from_fangraphs_html(pitchers_html, "pitchers_actuals.csv")
-
     # ## Get Projections
     #
     # For this part, we need to call some external bash code here, because the form data is too big to reasonably bring into the script here. Check out the [original blog post](https://zmsy.co/blog/fantasy-baseball/) on how to configure this for your own purposes.
     subprocess.check_call("./get_fangraphs.sh", shell=True)
 
-    # ## Read Data Into Pandas
-    #
-    # Load those CSV files using read_csv() in pandas. Since some of the percentage values are stored as strings, we need to parse those into floats.
-    # We want to create two dataframes here:
-    #
-    # - `dfb` - Batters Dataframe
-    # - `dfp` - Pitchers Dataframe
-    df_rost = pd.read_csv(output_path("rosters.csv"))
     dfb_act = pd.read_csv(output_path("batters_actuals.csv"))
     dfp_act = pd.read_csv(output_path("pitchers_actuals.csv"))
 
@@ -201,21 +234,6 @@ def main():
         x.replace("%", "_pct").replace("+", "_plus").replace("/", "-").lower()
         for x in dfp_act.columns
     ]
-
-    with open(output_path("batters_projections.html"), "r") as bhtml:
-        btxt = bhtml.read()
-        # read_html returns ALL tables, we just want the last one.
-        dfb_proj = pd.read_html(btxt)[-1]
-        dfb_proj.dropna(axis=1, inplace=True)
-
-    with open(output_path("pitchers_projections.html"), "r") as phtml:
-        ptxt = phtml.read()
-        dfp_proj = pd.read_html(ptxt)[-1]
-        dfp_proj.dropna(axis=1, inplace=True)
-
-    # rename columns and apply naming scheme
-    dfb_proj.columns = [x.replace("%", "_pct").replace("/", "-").lower() for x in dfb_proj.columns]
-    dfp_proj.columns = [x.replace("%", "_pct").replace("/", "-").lower() for x in dfp_proj.columns]
 
     # join the datasets together. we want one
     # for batters and one for pitchers, with
@@ -325,18 +343,7 @@ def main():
             (dfp[col] - dfp[col].mean()) / dfp[col].std(ddof=0) * dfp_score_cols.get(col)
         )
 
-    # ## Write Information Back to Database
-    #
-    # Once the table is available in the database, then we can query it again using other tools to make our lives easier. Then it can be used to display the information about each player in the Superset DB.
-    engine = sqlalchemy.create_engine(
-        "postgres://{user}:{password}@{host}:{port}/{db}".format(
-            user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD,
-            host=POSTGRES_IP,
-            port=POSTGRES_PORT,
-            db=POSTGRES_DB,
-        )
-    )
+    engine = get_sqlalchemy_engine()
 
     # open a connection and write the info back to the database
     conn = engine.connect()
@@ -347,6 +354,6 @@ def main():
 
 if __name__ == "__main__":
     # get_all_fangraphs_pages()
-    parse_fangraphs_projections_from_html("batters_projections_depth_charts.html")
+    post_all_fangraphs_projections_to_postgres()
     # main()
 
