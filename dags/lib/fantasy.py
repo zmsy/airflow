@@ -124,6 +124,25 @@ def get_all_fangraphs_pages():
     subprocess.check_call("${AIRFLOW_HOME}/dags/lib/get_fangraphs.sh", shell=True)
 
 
+def parse_fangraphs_projections_from_html(html_file):
+    """
+    Input one of the fangraphs html files and rip the first table we find in it.
+    Writes the outputs to a csv in the output folder.
+    """
+    with open(output_path(html_file), "r") as bhtml:
+        btxt = bhtml.read()
+        # read_html returns ALL tables, we just want the last one.
+        all_df = pd.read_html(btxt)
+        df = all_df[-1]
+
+    df.dropna(axis=1, inplace=True)
+    csv_name = output_path(
+        os.path.splitext(os.path.basename(html_file))[0]
+         + ".csv"
+    )
+    df.to_csv(csv_name)
+    
+
 def main():
     """
     Run the main loop in order to retrieve all of the data for both
@@ -185,9 +204,8 @@ def main():
 
     with open(output_path("batters_projections.html"), "r") as bhtml:
         btxt = bhtml.read()
-        dfb_proj = pd.read_html(btxt)[
-            -1
-        ]  # read_html returns ALL tables, we just want the last one.
+        # read_html returns ALL tables, we just want the last one.
+        dfb_proj = pd.read_html(btxt)[-1]
         dfb_proj.dropna(axis=1, inplace=True)
 
     with open(output_path("pitchers_projections.html"), "r") as phtml:
@@ -328,6 +346,7 @@ def main():
 
 
 if __name__ == "__main__":
-    get_all_fangraphs_pages()
+    # get_all_fangraphs_pages()
+    parse_fangraphs_projections_from_html("batters_projections_depth_charts.html")
     # main()
 
