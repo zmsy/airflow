@@ -97,28 +97,7 @@ def get_espn_player_data():
     """
     Use the ESPN player API in order to get information about the available players.
     """
-    player_data = {
-        "players": {
-            "filterSlotIds": {"value": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 19]},
-            "limit": 5000,
-            "offset": 0,
-            "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
-            "sortDraftRanks": {"sortPriority": 100, "sortAsc": True, "value": "STANDARD"},
-            "filterStatsForTopScoringPeriodIds": {
-                "value": 1,
-                "additionalValue": [
-                    "002019",
-                    "102019",
-                    "002018",
-                    "012019",
-                    "022019",
-                    "032019",
-                    "042019",
-                ],
-            },
-        }
-    }
-    headers = {"X-Fantasy-Filter": json.dumps(player_data)}
+    headers = {"X-Fantasy-Filter-Player-Count": "1720", 'X-Fantasy-Role': 'NONE'}
     t = requests.get(
         ESPN_PLAYERS_URL.format(league_id=ESPN_LEAGUE_ID),
         headers=headers,
@@ -304,20 +283,21 @@ def load_rosters_to_postgres():
     # loop through the teams and load rosters for each
     for team in team_data:
         for entry in team["roster"]["entries"]:
-            roster_insert = tuple([
-                team.get("id"),
-                datetime.datetime.fromtimestamp(entry["acquisitionDate"] / 1000),
-                entry.get("acquisitionType"),
-                entry.get("injuryStatus"),
-                entry.get("playerId"),
-                entry.get("playerPoolEntry", {}).get("player", {}).get("defaultPositionId"),
-                entry.get("playerPoolEntry", {}).get("player", {}).get("active"),
-                entry.get("playerPoolEntry", {}).get("player", {}).get("droppable"),
-                entry.get("playerPoolEntry", {}).get("player", {}).get("firstName"),
-                entry.get("playerPoolEntry", {}).get("player", {}).get("fullName"),
-                entry.get("playerPoolEntry", {}).get("player", {}).get("lastName")
-            ])
-
+            roster_insert = tuple(
+                [
+                    team.get("id"),
+                    datetime.datetime.fromtimestamp(entry["acquisitionDate"] / 1000),
+                    entry.get("acquisitionType"),
+                    entry.get("injuryStatus"),
+                    entry.get("playerId"),
+                    entry.get("playerPoolEntry", {}).get("player", {}).get("defaultPositionId"),
+                    entry.get("playerPoolEntry", {}).get("player", {}).get("active"),
+                    entry.get("playerPoolEntry", {}).get("player", {}).get("droppable"),
+                    entry.get("playerPoolEntry", {}).get("player", {}).get("firstName"),
+                    entry.get("playerPoolEntry", {}).get("player", {}).get("fullName"),
+                    entry.get("playerPoolEntry", {}).get("player", {}).get("lastName"),
+                ]
+            )
 
             # execute the insert
             cur.execute(
@@ -392,27 +372,32 @@ def load_players_to_postgres():
                 player.get("onTeamId"),
                 player.get("player", {}).get("active", False),
                 player.get("player", {}).get("defaultPositionId"),
-
-                player.get("player", {}).get("draftRanksByRankType", {}).get("STANDARD", {}).get("auctionValue"),
-                player.get("player", {}).get("draftRanksByRankType", {}).get("STANDARD", {}).get("rank"),
-                player.get("player", {}).get("draftRanksByRankType", {}).get("STANDARD", {}).get("rankType"),
+                player.get("player", {})
+                .get("draftRanksByRankType", {})
+                .get("STANDARD", {})
+                .get("auctionValue"),
+                player.get("player", {})
+                .get("draftRanksByRankType", {})
+                .get("STANDARD", {})
+                .get("rank"),
+                player.get("player", {})
+                .get("draftRanksByRankType", {})
+                .get("STANDARD", {})
+                .get("rankType"),
                 player.get("player", {}).get("droppable", False),
                 player.get("player", {}).get("firstName"),
-
                 player.get("player", {}).get("fullName"),
                 player.get("player", {}).get("injured", False),
                 player.get("player", {}).get("injuryStatus"),
                 player.get("player", {}).get("jersey"),
                 player.get("player", {}).get("lastName"),
-
                 player.get("player", {}).get("ownership", {}).get("averageDraftPosition"),
                 player.get("player", {}).get("ownership", {}).get("percentOwned"),
                 player.get("player", {}).get("ownership", {}).get("percentStarted"),
                 player.get("player", {}).get("proTeamId"),
                 player.get("rosterLocked"),
-
                 player.get("status"),
-                player.get("tradeLocked")
+                player.get("tradeLocked"),
             ]
         )
 
@@ -459,21 +444,15 @@ def load_watchlists_to_postgres():
     # loop through the teams and load watchlists for each
     for team in team_data:
         for entry in team.get("watchList", []):
-            roster_insert = tuple([
-                team.get("id"),
-                entry
-            ])
-
+            roster_insert = tuple([team.get("id"), entry])
 
             # execute the insert
-            cur.execute(
-                "INSERT INTO fantasy.watchlists VALUES (DEFAULT, %s, %s)",
-                roster_insert,
-            )
+            cur.execute("INSERT INTO fantasy.watchlists VALUES (DEFAULT, %s, %s)", roster_insert)
 
     # commit changes and close the connection
     conn.commit()
     conn.close()
+
 
 if __name__ == "__main__":
     # get_espn_league_data()
@@ -481,5 +460,5 @@ if __name__ == "__main__":
     # load_league_members_to_postgres()
     # load_teams_to_postgres()
     # load_rosters_to_postgres()
-    # load_players_to_postgres()
+    load_players_to_postgres()
     # load_watchlists_to_postgres()

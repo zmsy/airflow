@@ -113,48 +113,6 @@ def parse_pctg(value):
     return float(value.split()[0]) / 100
 
 
-def league(team_name):
-    """
-    Since FG data didnt come with league info, create a dict of league
-    info for lookups.
-    """
-
-    LEAGUES = {
-        "Angels": "AL",
-        "Astros": "AL",
-        "Athletics": "AL",
-        "Blue Jays": "AL",
-        "Braves": "NL",
-        "Brewers": "NL",
-        "Cardinals": "NL",
-        "Cubs": "NL",
-        "Diamondbacks": "NL",
-        "Dodgers": "NL",
-        "Giants": "NL",
-        "Indians": "AL",
-        "Mariners": "AL",
-        "Marlins": "NL",
-        "Mets": "NL",
-        "Nationals": "NL",
-        "Orioles": "AL",
-        "Padres": "NL",
-        "Phillies": "NL",
-        "Pirates": "NL",
-        "Rangers": "AL",
-        "Rays": "AL",
-        "Red Sox": "AL",
-        "Reds": "NL",
-        "Rockies": "NL",
-        "Royals": "AL",
-        "Tigers": "AL",
-        "Twins": "AL",
-        "White Sox": "AL",
-        "Yankees": "AL",
-    }
-
-    return LEAGUES.get(team_name)
-
-
 def get_all_fangraphs_pages():
     """
     Returns all of the 4 different Fangraphs Depth Charts projections
@@ -207,11 +165,6 @@ def main():
     Run the main loop in order to retrieve all of the data for both
     batting and pitching.
     """
-    # ## Get Projections
-    #
-    # For this part, we need to call some external bash code here, because the form data is too big to reasonably bring into the script here. Check out the [original blog post](https://zmsy.co/blog/fantasy-baseball/) on how to configure this for your own purposes.
-    subprocess.check_call("./get_fangraphs.sh", shell=True)
-
     dfb_act = pd.read_csv(output_path("batters_actuals.csv"))
     dfp_act = pd.read_csv(output_path("pitchers_actuals.csv"))
 
@@ -225,7 +178,6 @@ def main():
             dfp_act[col] = dfp_act[col].apply(lambda x: parse_pctg(x))
 
     # rename columns to remove % (causes issues with postgres insert)
-    df_rost.columns = [x.lower() for x in df_rost.columns]
     dfb_act.columns = [
         x.replace("%", "_pct").replace("+", "_plus").replace("/", "-").lower()
         for x in dfb_act.columns
@@ -235,15 +187,6 @@ def main():
         for x in dfp_act.columns
     ]
 
-    # join the datasets together. we want one
-    # for batters and one for pitchers, with
-    # roster information in both of them.
-    dfb = pd.merge(dfb_proj, df_rost, how="left", on="name", suffixes=(".p", ".r"))
-    dfb = pd.merge(dfb, dfb_act, how="left", on="name", suffixes=("", ".a"))
-
-    dfp = pd.merge(dfp_proj, df_rost, how="left", on="name", suffixes=(".p", ".r"))
-    dfp = pd.merge(dfp, dfp_act, how="left", on="name", suffixes=("", ".a"))
-
     # ## Filter and Qualify Information
     #
     # The dataframes for pitchers/batters contain a lot of noise for things that we don't really care about, or won't actually have much of an effect on our league.
@@ -252,75 +195,6 @@ def main():
 
     dfb = dfb[dfb["pa"] > 100]
     dfp = dfp[dfp["ip"] > 20]
-    dfb["league"] = dfb["team"].apply(lambda x: league(x))
-    dfp["league"] = dfp["team"].apply(lambda x: league(x))
-
-    # rearrange columns for readability and filter some out
-    # keep only ones relevant for our league
-    dfb_columns = [
-        "#",
-        "name",
-        "squad",
-        "team",
-        "league",
-        "pa",
-        "pa.a",
-        "ab",
-        "h",
-        "so",
-        "k_pct",
-        "hr",
-        "hr.a",
-        "avg",
-        "iso",
-        "babip",
-        "wrc_plus",
-        "avg.a",
-        "obp",
-        "obp.a",
-        "woba",
-        "woba.a",
-        "slg",
-        "slg.a",
-        "ops",
-        "bb_pct",
-        "bb",
-    ]
-
-    dfp_columns = [
-        "#",
-        "name",
-        "squad",
-        "team",
-        "league",
-        "ip",
-        "era",
-        "er",
-        "hr",
-        "so",
-        "bb",
-        "whip",
-        "k-9",
-        "bb-9",
-        "fip",
-        "k-9.a",
-        "bb-9.a",
-        "k-bb",
-        "k_pct",
-        "whip.a",
-        "so.a",
-        "lob_pct",
-        "era.a",
-        "fip.a",
-        "e-f",
-        "xfip",
-        "siera",
-        "ip.a",
-    ]
-
-    # filter to just the columns we want
-    dfb = dfb[dfb_columns]
-    dfp = dfp[dfp_columns]
 
     # ## Calculate Scores
     # The individual players in both the batting and pitching groups will get scored based on the entirety of the sample available. We calculate a composite score by taking the individual z-scores in each of the categories and trying to determine which players are above average.
