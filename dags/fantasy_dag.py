@@ -68,7 +68,7 @@ t5 = PythonOperator(
     default_args=default_args
 )
 
-t7 = PythonOperator(
+t8 = PythonOperator(
     dag=dag,
     task_id="post_all_fangraphs_projections_to_postgres",
     python_callable=fantasy.post_all_fangraphs_projections_to_postgres,
@@ -80,4 +80,5 @@ t3.set_upstream(t1)
 t4.set_upstream(t1)
 t5.set_upstream(t1)
 t6.set_upstream(t2)
-t7.set_upstream(t5)
+t7.set_upstream(t1)
+t8.set_upstream(t5)
