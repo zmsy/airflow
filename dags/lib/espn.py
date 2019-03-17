@@ -91,7 +91,7 @@ def get_espn_league_data():
     date_str = str(datetime.date.today())
     out_file_path = output_path("rosters" + date_str + ".json")
     with open(out_file_path, "w", newline="") as out_file:
-        json.dump(rosters_json, out_file, indent=2)
+        json.dump(rosters_json, out_file)
 
 
 def get_espn_player_data():
@@ -440,17 +440,6 @@ def load_players_to_postgres():
         players_insert,
     )
 
-        # cur.execute(
-        #     """
-        #     INSERT INTO fantasy.players VALUES (
-        #         DEFAULT, %s, %s, %s, %s, %s, %s, %s,
-        #         %s, %s, %s, %s, %s, %s, %s, %s,
-        #         %s, %s, %s, %s, %s, %s
-        #     )
-        #     """,
-        #     player_insert,
-        # )
-
     # commit changes and close the connection
     conn.commit()
     conn.close()
@@ -493,11 +482,48 @@ def load_watchlists_to_postgres():
     conn.close()
 
 
+def get_elibile_slots_for_player(eligibility):
+    """
+    Translates the "eligibleSlots" data from ESPN into readable.
+
+Acuna
+        "eligibleSlots": [
+          8,
+          5,
+          12,
+          16,
+          17
+        ],
+    """
+    lineupSlots: {
+        0: "C",    # 1
+        1: "1B",     # 1
+        2: "2B",   # 1
+        3: "3B",     # 1
+        4: "SS",     # 1
+        5: "OF",   # 5
+        6: "",     # 1
+        7: "1B/3B",     # 1
+        8: "",     # 0
+        9: "",     # 0
+        10: "",  # 0
+        11: "",  # 0
+        12: "",  # 1
+        13: "",  # 1
+        14: "SP",  # 5
+        15: "RP",  # 3
+        16: "Bench",  # 3
+        17: "",  # 1
+        18: "",  # 0
+        19: ""   # 0
+      },
+
+
 if __name__ == "__main__":
-    # get_espn_league_data()
+    get_espn_league_data()
     # get_espn_player_data()
     # load_league_members_to_postgres()
     # load_teams_to_postgres()
     # load_rosters_to_postgres()
-    load_players_to_postgres()
+    # load_players_to_postgres()
     # load_watchlists_to_postgres()
