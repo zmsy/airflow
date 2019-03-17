@@ -1,5 +1,7 @@
 venv/*
 logs/*
+*.py[cod]
+*.pyc
 *.log
 *.err
 *.out
