@@ -43,7 +43,21 @@ t3 = PythonOperator(
 t4 = PythonOperator(
     dag=dag,
     task_id = 'load_teams_to_postgres',
-    python_callable=espn.load_league_members_to_postgres,
+    python_callable=espn.load_teams_to_postgres,
+    default_args=default_args
+)
+
+t7 = PythonOperator(
+    dag=dag,
+    task_id = 'load_teams_to_postgres',
+    python_callable=espn.load_rosters_to_postgres,
+    default_args=default_args
+)
+
+t6 = PythonOperator(
+    dag=dag,
+    task_id = 'load_teams_to_postgres',
+    python_callable=espn.load_players_to_postgres,
     default_args=default_args
 )
 
@@ -55,6 +69,7 @@ t5 = PythonOperator(
 )
 
 t2.set_upstream(t1)
-t3.set_upstream(t2)
-t4.set_upstream(t2)
+t3.set_upstream(t1)
+t4.set_upstream(t1)
 t5.set_upstream(t1)
+t6.set_upstream(t2)

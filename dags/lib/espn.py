@@ -97,7 +97,28 @@ def get_espn_player_data():
     """
     Use the ESPN player API in order to get information about the available players.
     """
-    headers = {"X-Fantasy-Filter-Player-Count": "1720", 'X-Fantasy-Role': 'NONE'}
+    x_fantasy_filter = {
+        "players": {
+            "filterSlotIds": {"value": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 19]},
+            "limit": 2000,
+            "offset": 0,
+            "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
+            "sortDraftRanks": {"sortPriority": 100, "sortAsc": True, "value": "STANDARD"},
+            "filterStatsForTopScoringPeriodIds": {
+                "value": 1,
+                "additionalValue": [
+                    "002019",
+                    "102019",
+                    "002018",
+                    "012019",
+                    "022019",
+                    "032019",
+                    "042019",
+                ],
+            },
+        }
+    }
+    headers = {"X-Fantasy-Filter": json.dumps(x_fantasy_filter)}
     t = requests.get(
         ESPN_PLAYERS_URL.format(league_id=ESPN_LEAGUE_ID),
         headers=headers,
@@ -108,8 +129,7 @@ def get_espn_player_data():
     date_str = str(datetime.date.today())
     out_file_path = output_path("players" + date_str + ".json")
     with open(out_file_path, "w", newline="") as out_file:
-        json.dump(players_json, out_file, indent=2)
-
+        json.dump(players_json, out_file)
 
 def load_league_members_to_postgres():
     """
