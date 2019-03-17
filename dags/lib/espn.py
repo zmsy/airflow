@@ -12,6 +12,7 @@ import json
 import os
 import sqlalchemy
 import psycopg2
+from psycopg2.extras import execute_values
 from bs4 import BeautifulSoup
 
 # connection information for the database
@@ -130,6 +131,7 @@ def get_espn_player_data():
     out_file_path = output_path("players" + date_str + ".json")
     with open(out_file_path, "w", newline="") as out_file:
         json.dump(players_json, out_file)
+
 
 def load_league_members_to_postgres():
     """
@@ -385,6 +387,7 @@ def load_players_to_postgres():
         players = players_data["players"]
 
     # loop through and insert each member into the table
+    players_insert = []
     for player in players:
         player_insert = tuple(
             [
@@ -420,17 +423,33 @@ def load_players_to_postgres():
                 player.get("tradeLocked"),
             ]
         )
+        players_insert.append(player_insert)
 
-        cur.execute(
-            """
-            INSERT INTO fantasy.players VALUES (
-                DEFAULT, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s
-            )
-            """,
-            player_insert,
+    execute_values(
+        cur,
+        """
+        INSERT INTO fantasy.players (
+        espn_id, onTeamId, active, defaultPositionId,
+        auctionValue, draftRank, draftRankType, droppable, firstName,
+        fullName, injured, injuryStatus, jersey, lastName,
+        averageDraftPosition, percentOwned, percentStarted, proTeamId, rosterLocked,
+        status, tradeLocked
         )
+        VALUES %s
+        """,
+        players_insert,
+    )
+
+        # cur.execute(
+        #     """
+        #     INSERT INTO fantasy.players VALUES (
+        #         DEFAULT, %s, %s, %s, %s, %s, %s, %s,
+        #         %s, %s, %s, %s, %s, %s, %s, %s,
+        #         %s, %s, %s, %s, %s, %s
+        #     )
+        #     """,
+        #     player_insert,
+        # )
 
     # commit changes and close the connection
     conn.commit()
@@ -476,7 +495,7 @@ def load_watchlists_to_postgres():
 
 if __name__ == "__main__":
     # get_espn_league_data()
-    get_espn_player_data()
+    # get_espn_player_data()
     # load_league_members_to_postgres()
     # load_teams_to_postgres()
     # load_rosters_to_postgres()
