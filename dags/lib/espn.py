@@ -100,32 +100,25 @@ def get_espn_player_data():
     """
     x_fantasy_filter = {
         "players": {
-            "filterSlotIds": {"value": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 19]},
-            "limit": 2000,
+            "filterSlotIds": {"value": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 19]},
+            "limit": 2500,
             "offset": 0,
             "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
             "sortDraftRanks": {"sortPriority": 100, "sortAsc": True, "value": "STANDARD"},
             "filterStatsForTopScoringPeriodIds": {
                 "value": 1,
-                "additionalValue": [
-                    "002019",
-                    "102019",
-                    "002018",
-                    "012019",
-                    "022019",
-                    "032019",
-                    "042019",
-                ],
+                "additionalValue": [],
             },
         }
     }
+
     headers = {"X-Fantasy-Filter": json.dumps(x_fantasy_filter)}
-    t = requests.get(
+    data = requests.get(
         ESPN_PLAYERS_URL.format(league_id=ESPN_LEAGUE_ID),
         headers=headers,
         cookies=get_espn_cookies(),
     )
-    players_json = json.loads(t.text)
+    players_json = json.loads(data.text)
 
     date_str = str(datetime.date.today())
     out_file_path = output_path("players" + date_str + ".json")
@@ -374,7 +367,8 @@ def load_players_to_postgres():
 
             status varchar(12),
             tradeLocked boolean,
-            eligibility varchar(64)
+            eligibility varchar(64),
+            position varchar(64)
         );
         GRANT SELECT ON fantasy.players TO PUBLIC;
         """
@@ -421,7 +415,8 @@ def load_players_to_postgres():
                 player.get("rosterLocked"),
                 player.get("status"),
                 player.get("tradeLocked"),
-                "|".join([get_eligibility_by_id(x) for x in player.get("player", {}).get("eligibleSlots")])
+                "|".join(get_player_eligibile_slots(player)),
+                "|".join(get_player_position_eligibility(player)),
             ]
         )
         players_insert.append(player_insert)
@@ -434,7 +429,7 @@ def load_players_to_postgres():
         auctionValue, draftRank, draftRankType, droppable, firstName,
         fullName, injured, injuryStatus, jersey, lastName,
         averageDraftPosition, percentOwned, percentStarted, proTeamId, rosterLocked,
-        status, tradeLocked, eligibility
+        status, tradeLocked, eligibility, position
         )
         VALUES %s
         """,
@@ -483,34 +478,72 @@ def load_watchlists_to_postgres():
     conn.close()
 
 
-def get_eligibility_by_id(eligibilityId):
+def get_player_eligibile_slots(player):
     """
-    Translates the "eligibleSlots" data from ESPN into readable.
+    Translates the "eligibleSlots" data from ESPN into readable player eligibility.
+    Filters out the list for any positions that we don't support.
     """
-    lineupSlots = dict([
-        (0, "C"),    # 1
-        (1, "1B"),     # 1
-        (2, "2B"),   # 1
-        (3, "3B"),     # 1
-        (4, "SS"),     # 1
-        (5, "OF"),   # 5
-        (6, "2B/SS"),     # 1
-        (7, "1B/3B"),     # 1
-        (12, "UTIL"),  # 1
-        (13, "P"),  # 1
-        (14, "SP"),  # 5
-        (15, "RP"),  # 3
-        (16, "Bench"),  # 3
-        (17, "DL"),  # 1
-    ])
-    return lineupSlots.get(eligibilityId)
+    lineupSlots = dict(
+        [
+            (0, "C"),  # 1
+            (1, "1B"),  # 1
+            (2, "2B"),  # 1
+            (3, "3B"),  # 1
+            (4, "SS"),  # 1
+            (5, "OF"),  # 5
+            (6, "2B/SS"),  # 1
+            (7, "1B/3B"),  # 1
+            (12, "UTIL"),  # 1
+            (13, "P"),  # 1
+            (14, "SP"),  # 5
+            (15, "RP"),  # 3
+        ]
+    )
+    eligible_slots = player.get("player", {}).get("eligibleSlots")
+
+    # pass all of the eligibility values to our lookup map
+    eligibility_list = [lineupSlots.get(x) for x in eligible_slots]
+
+    # filter any for positions that we don't have, or generic positions.
+    eligibility_list = list(filter(lambda x: x is not None, eligibility_list))
+
+    return eligibility_list
+
+
+def get_player_position_eligibility(player):
+    """
+    From a list of eligible slots, return those that are actually positions and not
+    just ESPN eligibility slots.
+    """
+    actual_positions = dict(
+        [
+            (0, "C"),  # 1
+            (1, "1B"),  # 1
+            (2, "2B"),  # 1
+            (3, "3B"),  # 1
+            (4, "SS"),  # 1
+            (5, "OF"),  # 5
+            (11, "DH"),  # 0
+            (14, "SP"),  # 5
+            (15, "RP"),  # 3
+        ]
+    )
+    eligible_slots = player.get("player", {}).get("eligibleSlots")
+
+    # pass all of the eligibility values to our lookup map
+    eligibility_list = [actual_positions.get(x) for x in eligible_slots]
+
+    # filter any for positions that we don't have, or generic positions.
+    eligibility_list = list(filter(lambda x: x is not None, eligibility_list))
+
+    return eligibility_list
 
 
 if __name__ == "__main__":
-    get_espn_league_data()
-    # get_espn_player_data()
+    # get_espn_league_data()
+    get_espn_player_data()
+    load_players_to_postgres()
     # load_league_members_to_postgres()
     # load_teams_to_postgres()
     # load_rosters_to_postgres()
-    # load_players_to_postgres()
     # load_watchlists_to_postgres()
