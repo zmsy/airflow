@@ -195,17 +195,19 @@ def load_teams_to_postgres():
             logo varchar(255),
 
             logoType varchar(64),
+            location varchar(64),
             nickname varchar(64),
+            name varchar(128),
             playoffSeed integer,
+
             primaryOwner varchar(64),
             gamesBack numeric(6, 2),
-
             wins integer,
             losses integer,
             ties integer,
+
             acquisitions integer,
             drops integer,
-
             trades integer,
             moveToActive integer,
             moveToIR integer
@@ -229,7 +231,9 @@ def load_teams_to_postgres():
                 team.get("id"),
                 team.get("logo"),
                 team.get("logoType"),
+                team.get("location"),
                 team.get("nickname"),
+                " ".join([team.get("location"), team.get("nickname")]),
                 int(team.get("playoffSeed", 0)),
                 team.get("primaryOwner"),
                 float(team.get("record", {}).get("overall", {}).get("gamesBack", 0.0)),
@@ -247,7 +251,7 @@ def load_teams_to_postgres():
         cur.execute(
             """
             INSERT INTO fantasy.teams VALUES (
-                DEFAULT, %s, %s, %s, %s, %s, %s, %s,
+                DEFAULT, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
             """,
@@ -541,9 +545,9 @@ def get_player_position_eligibility(player):
 
 if __name__ == "__main__":
     # get_espn_league_data()
-    get_espn_player_data()
-    load_players_to_postgres()
+    # get_espn_player_data()
+    # load_players_to_postgres()
     # load_league_members_to_postgres()
-    # load_teams_to_postgres()
+    load_teams_to_postgres()
     # load_rosters_to_postgres()
     # load_watchlists_to_postgres()
