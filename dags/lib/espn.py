@@ -373,8 +373,8 @@ def load_players_to_postgres():
             rosterLocked boolean,
 
             status varchar(12),
-            tradeLocked boolean
-
+            tradeLocked boolean,
+            eligibility varchar(64)
         );
         GRANT SELECT ON fantasy.players TO PUBLIC;
         """
@@ -421,6 +421,7 @@ def load_players_to_postgres():
                 player.get("rosterLocked"),
                 player.get("status"),
                 player.get("tradeLocked"),
+                "|".join([get_eligibility_by_id(x) for x in player.get("player", {}).get("eligibleSlots")])
             ]
         )
         players_insert.append(player_insert)
@@ -433,7 +434,7 @@ def load_players_to_postgres():
         auctionValue, draftRank, draftRankType, droppable, firstName,
         fullName, injured, injuryStatus, jersey, lastName,
         averageDraftPosition, percentOwned, percentStarted, proTeamId, rosterLocked,
-        status, tradeLocked
+        status, tradeLocked, eligibility
         )
         VALUES %s
         """,
@@ -482,18 +483,9 @@ def load_watchlists_to_postgres():
     conn.close()
 
 
-def get_elibile_slots_for_player(eligibility):
+def get_eligibility_by_id(eligibilityId):
     """
     Translates the "eligibleSlots" data from ESPN into readable.
-
-Acuna
-        "eligibleSlots": [
-          8,
-          5,
-          12,
-          16,
-          17
-        ],
     """
     lineupSlots = dict([
         (0, "C"),    # 1
@@ -511,6 +503,7 @@ Acuna
         (16, "Bench"),  # 3
         (17, "DL"),  # 1
     ])
+    return lineupSlots.get(eligibilityId)
 
 
 if __name__ == "__main__":
