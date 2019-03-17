@@ -49,14 +49,14 @@ t4 = PythonOperator(
 
 t7 = PythonOperator(
     dag=dag,
-    task_id = 'load_teams_to_postgres',
+    task_id = 'load_rosters_to_postgres',
     python_callable=espn.load_rosters_to_postgres,
     default_args=default_args
 )
 
 t6 = PythonOperator(
     dag=dag,
-    task_id = 'load_teams_to_postgres',
+    task_id = 'load_players_to_postgres',
     python_callable=espn.load_players_to_postgres,
     default_args=default_args
 )
@@ -68,8 +68,16 @@ t5 = PythonOperator(
     default_args=default_args
 )
 
+t7 = PythonOperator(
+    dag=dag,
+    task_id="post_all_fangraphs_projections_to_postgres",
+    python_callable=fantasy.post_all_fangraphs_projections_to_postgres,
+    default_args=default_args
+)
+
 t2.set_upstream(t1)
 t3.set_upstream(t1)
 t4.set_upstream(t1)
 t5.set_upstream(t1)
 t6.set_upstream(t2)
+t7.set_upstream(t5)
