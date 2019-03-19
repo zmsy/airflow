@@ -126,7 +126,7 @@ def post_fangraphs_projections_html_to_postgres(html_file):
     Input one of the fangraphs html files and rip the first table we find in it.
     Writes the outputs to a csv in the output folder.
     """
-    with open(output_path(html_file), "rb") as bhtml:
+    with open(html_file, "rb") as bhtml:
         btxt = bhtml.read().decode("utf-8")
         # read_html returns ALL tables, we just want the last one.
         all_df = pd.read_html(btxt)

@@ -5,8 +5,7 @@ RUN sudo apt update -y \
     python3 \
     python3-pip \
     libmysqlclient-dev \
-    apache-airflow[async, crypto, jdbc, mysql, postgres, password, redis] \
     libssl-dev \
     libffi-dev \
+    curl \
     vim
-
