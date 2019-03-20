@@ -17,8 +17,6 @@ import sqlalchemy
 import psycopg2
 from bs4 import BeautifulSoup
 
-pd.options.display.max_columns = 150
-
 # connection information for the database
 POSTGRES_USER = os.environ.get("POSTGRES_USER")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
@@ -227,7 +225,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # get_all_fangraphs_pages()
+    get_all_fangraphs_pages()
     post_all_fangraphs_projections_to_postgres()
     # main()
 
