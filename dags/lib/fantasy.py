@@ -163,36 +163,6 @@ def main():
     Run the main loop in order to retrieve all of the data for both
     batting and pitching.
     """
-    dfb_act = pd.read_csv(output_path("batters_actuals.csv"))
-    dfp_act = pd.read_csv(output_path("pitchers_actuals.csv"))
-
-    # apply that to all percentage values in the dataframes
-    for col in dfb_act.columns:
-        if "%" in col:
-            dfb_act[col] = dfb_act[col].apply(lambda x: parse_pctg(x))
-
-    for col in dfp_act.columns:
-        if "%" in col:
-            dfp_act[col] = dfp_act[col].apply(lambda x: parse_pctg(x))
-
-    # rename columns to remove % (causes issues with postgres insert)
-    dfb_act.columns = [
-        x.replace("%", "_pct").replace("+", "_plus").replace("/", "-").lower()
-        for x in dfb_act.columns
-    ]
-    dfp_act.columns = [
-        x.replace("%", "_pct").replace("+", "_plus").replace("/", "-").lower()
-        for x in dfp_act.columns
-    ]
-
-    # ## Filter and Qualify Information
-    #
-    # The dataframes for pitchers/batters contain a lot of noise for things that we don't really care about, or won't actually have much of an effect on our league.
-    # apply some filters so we can get rid of players who won't play.
-    # minimum plate appearances or innings pitched
-
-    dfb = dfb[dfb["pa"] > 100]
-    dfp = dfp[dfp["ip"] > 20]
 
     # ## Calculate Scores
     # The individual players in both the batting and pitching groups will get scored based on the entirety of the sample available. We calculate a composite score by taking the individual z-scores in each of the categories and trying to determine which players are above average.

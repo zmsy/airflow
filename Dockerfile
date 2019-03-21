@@ -1,4 +1,6 @@
-FROM ubuntu:16.04
+FROM ubuntu:18.04
+
+WORKDIR /airflow
 
 RUN sudo apt update -y \
     && apt install build-essential \
@@ -9,3 +11,8 @@ RUN sudo apt update -y \
     libffi-dev \
     curl \
     vim
+
+
+
+RUN airflow scheduler &
+CMD airflow webserver -p 8080
