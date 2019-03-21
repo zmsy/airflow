@@ -1,7 +1,7 @@
-apache_airflow==1.10.2
-beautifulsoup4==4.7.1
-numpy==1.15.0
-pandas==0.23.4
-psycopg2==2.7.5
-requests==2.21.0
-SQLAlchemy==1.2.11
+apache_airflow
+beautifulsoup4
+numpy
+pandas
+psycopg2
+requests
+SQLAlchemy
