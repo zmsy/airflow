@@ -23,7 +23,5 @@ RUN pip3 install -r requirements.txt
 
 COPY . .
 
-# RUN airflow scheduler &
-# CMD airflow webserver -p 8080
-
-CMD /bin/bash
+RUN chmod +x entrypoint.sh
+ENTRYPOINT [ "/bin/bash", "entrypoint.sh" ]
