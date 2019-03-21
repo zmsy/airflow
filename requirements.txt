@@ -22,8 +22,8 @@ dill==0.2.9
 distro-info===0.18ubuntu0.18.04.1
 docutils==0.14
 enum34==1.1.6
-Flask==0.12.4
-Flask-Admin==1.5.2
+Flask==1.0.2
+Flask-Admin==1.5.3
 Flask-AppBuilder==1.12.1
 Flask-Babel==0.12.2
 Flask-Bcrypt==0.7.1
@@ -112,6 +112,6 @@ urllib3==1.24.1
 wcwidth==0.1.7
 webencodings==0.5.1
 websocket-client==0.54.0
-Werkzeug==0.14.1
+Werkzeug==0.15.0
 WTForms==2.2.1
 zope.deprecation==4.4.0
