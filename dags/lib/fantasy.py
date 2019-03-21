@@ -225,7 +225,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # get_all_fangraphs_pages()
+    get_all_fangraphs_pages()
     post_all_fangraphs_projections_to_postgres()
     # main()
 
