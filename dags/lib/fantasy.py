@@ -125,14 +125,24 @@ def post_fangraphs_projections_html_to_postgres(html_file):
     Writes the outputs to a csv in the output folder.
     """
     with open(html_file, "r+", encoding="utf-8") as bhtml:
+
+        # read the file and get rid of the pager table
         btxt = bhtml.read()
+        soup = BeautifulSoup(btxt, "lxml")
+        pager = soup.find('tr', attrs={'class':'rgPager'})
+        if pager:
+            pager.decompose() # remove pager
+        validated_html = soup.prettify("utf-8")  # prettify for debug
+
         # read_html returns ALL tables, we just want the last one.
-        all_df = pd.read_html(btxt)
+        all_df = pd.read_html(validated_html)
         df = all_df[-1]
 
     # get rid of na and clean column names
-    df.dropna(axis=1, inplace=True)
     df.columns = [x.lower() for x in df.columns]
+    for column in df.columns:
+        if "unnamed" in column:
+            df.drop(column, axis=1, inplace=True)
     df.columns = [x.replace("%", "_pct").replace("/", "-").lower() for x in df.columns]
     for col in df.columns:
         if "_pct" in col:
@@ -152,50 +162,14 @@ def post_all_fangraphs_projections_to_postgres():
     Invoke post_fangraphs_projections_html_to_postgres for each of the
     projections that we want.
     """
-    post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts.html"))
-    post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts_ros.html"))
+    # post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts.html"))
+    # post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts_ros.html"))
     post_fangraphs_projections_html_to_postgres(output_path("pitchers_projections_depth_charts.html"))
     post_fangraphs_projections_html_to_postgres(output_path("pitchers_projections_depth_charts_ros.html"))
 
 
-def main():
-    """
-    Run the main loop in order to retrieve all of the data for both
-    batting and pitching.
-    """
-
-    # ## Calculate Scores
-    # The individual players in both the batting and pitching groups will get scored based on the entirety of the sample available. We calculate a composite score by taking the individual z-scores in each of the categories and trying to determine which players are above average.
-
-    # a 1 represents a positive number, i.e. higher is better
-    # a -1 represents negative, meaning lower is better
-    dfb_score_cols = {"pa": 1, "k_pct": -1, "hr": 1, "iso": 1, "obp": 1, "woba": 1, "slg": 1}
-
-    dfp_score_cols = {"ip": 1, "era": -1, "hr": -1, "so": 1, "whip": -1, "fip": -1, "k-9": 1}
-
-    for col in dfb_score_cols.keys():
-        col_score = col + "_score"
-        dfb[col_score] = (
-            (dfb[col] - dfb[col].mean()) / dfb[col].std(ddof=0) * dfb_score_cols.get(col)
-        )
-
-    for col in dfp_score_cols.keys():
-        col_score = col + "_score"
-        dfp[col_score] = (
-            (dfp[col] - dfp[col].mean()) / dfp[col].std(ddof=0) * dfp_score_cols.get(col)
-        )
-
-    engine = get_sqlalchemy_engine()
-
-    # open a connection and write the info back to the database
-    conn = engine.connect()
-    dfb.to_sql("batters", conn, schema="fantasy", if_exists="replace")
-    dfb.to_sql("pitchers", conn, schema="fantasy", if_exists="replace")
-    conn.close()
-
-
 if __name__ == "__main__":
-    get_all_fangraphs_pages()
+    # get_all_fangraphs_pages()
     post_all_fangraphs_projections_to_postgres()
     # main()
 
