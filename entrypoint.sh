@@ -1,3 +1,4 @@
 airflow initdb
 airflow scheduler &
-airflow webserver -p 8080
+sleep 10
+exec airflow webserver -p 8080
