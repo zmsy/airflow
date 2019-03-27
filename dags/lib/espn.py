@@ -543,11 +543,36 @@ def get_player_position_eligibility(player):
     return eligibility_list
 
 
+def insert_etl_timestamp():
+    """
+    Send the timestamp to the database for the last time that the stats were updated.
+    """
+    conn = get_postgres_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SET TIMEZONE='America/Los_angeles';
+        CREATE TABLE IF NOT EXISTS fantasy.etl_updates (
+            id serial primary key,
+            updated_time timestamptz
+        );
+        GRANT SELECT ON fantasy.etl_updates TO PUBLIC;
+        INSERT INTO fantasy.etl_updates VALUES
+        (DEFAULT, NOW());
+        """
+    )
+
+    # commit changes and close the connection
+    conn.commit()
+    conn.close()
+
+
 if __name__ == "__main__":
-    # get_espn_league_data()
-    # get_espn_player_data()
-    # load_players_to_postgres()
-    # load_league_members_to_postgres()
+    get_espn_league_data()
+    get_espn_player_data()
+    load_players_to_postgres()
+    load_league_members_to_postgres()
     load_teams_to_postgres()
-    # load_rosters_to_postgres()
-    # load_watchlists_to_postgres()
+    load_rosters_to_postgres()
+    load_watchlists_to_postgres()
+    insert_etl_timestamp()
