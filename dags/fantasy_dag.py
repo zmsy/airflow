@@ -75,6 +75,20 @@ t8 = PythonOperator(
     default_args=default_args
 )
 
+t9 = PythonOperator(
+    dag=dag,
+    task_id="get_fangraphs_actuals",
+    python_callable=fantasy.get_fangraphs_actuals,
+    default_args=default_args
+)
+
+t10 = PythonOperator(
+    dag=dag,
+    task_id="insert_etl_timestamp",
+    python_callable=espn.insert_etl_timestamp,
+    default_args=default_args
+)
+
 t2.set_upstream(t1)
 t3.set_upstream(t1)
 t4.set_upstream(t1)
@@ -82,3 +96,7 @@ t5.set_upstream(t1)
 t6.set_upstream(t2)
 t7.set_upstream(t1)
 t8.set_upstream(t5)
+t9.set_upstream(t2)
+t10.set_upstream(t3)
+t10.set_upstream(t6)
+t10.set_upstream(t8)
