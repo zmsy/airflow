@@ -5,16 +5,18 @@ Retrieves, parses and inserts fantasy data into the postgres db
 for later analysis.
 """
 
-import requests
 import csv
 import datetime
-import subprocess
 import json
 import os
-import pandas as pd
+import subprocess
+
 import numpy as np
-import sqlalchemy
+import pandas as pd
 import psycopg2
+import pybaseball
+import requests
+import sqlalchemy
 from bs4 import BeautifulSoup
 
 # connection information for the database
@@ -147,6 +149,7 @@ def post_fangraphs_projections_html_to_postgres(html_file):
     for col in df.columns:
         if "_pct" in col:
             df[col] = df[col].apply(lambda x: parse_pctg(x))
+    df.dropna(inplace=True)
 
     # create sqlalchemy engine for putting dataframe to postgres
     engine = get_sqlalchemy_engine()
@@ -168,8 +171,80 @@ def post_all_fangraphs_projections_to_postgres():
     post_fangraphs_projections_html_to_postgres(output_path("pitchers_projections_depth_charts_ros.html"))
 
 
-if __name__ == "__main__":
-    get_all_fangraphs_pages()
-    post_all_fangraphs_projections_to_postgres()
-    get_fangraphs_actuals()
+def get_statcast_batter_actuals():
+    """
+    Gets the relevant statcast metrics for batters.
+    """
+    engine = get_sqlalchemy_engine()
+    conn = engine.connect()
+    statcast_results = pybaseball.batting_stats_bref()
+    statcast_results.to_sql('batters_statcast_actuals', conn, schema="fantasy", if_exists="replace")
+    conn.execute("grant select on fantasy.batters_statcast to public")
 
+
+def get_statcast_pitcher_actuals():
+    """
+    Gets the relevant statcast metrics for batters.
+    """
+    engine = get_sqlalchemy_engine()
+    conn = engine.connect()
+    statcast_results = pybaseball.pitching_stats_bref()
+    statcast_results.to_sql('pitchers_statcast_actuals', conn, schema="fantasy", if_exists="replace")
+    conn.execute("grant select on fantasy.pitchers_statcast to public")
+
+
+def get_statcast_batter_data():
+    """
+    This parses out the statcast information from the baseball savant website.
+    """
+    url = "https://baseballsavant.mlb.com/statcast_leaderboard?year=2018&player_type=resp_batter_id"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text)
+    scripts = soup.find_all('script')
+    data_script = scripts[9]   # hardcoding this for now, may need updates
+
+    # decode the script. this loads the js and keys into the 'leaderboard_data' variable.
+    json_text = extract_json_objects(data_script.text, "leaderboard_data = ")
+    players_list = []
+    for p in json_text:
+        if isinstance(p, list):
+            players_list = p
+            break
+
+    # write back the database
+    df = pd.DataFrame(players_list)
+    engine = get_sqlalchemy_engine()
+    conn = engine.connect()
+    df.to_sql('batters_statcast', conn, schema="fantasy", if_exists="replace")
+    conn.execute("grant select on fantasy.batters_statcast to public")
+
+
+def extract_json_objects(text, start_str="{", decoder=json.JSONDecoder()):
+    """Find JSON objects in text, and yield the decoded JSON data
+
+    Does not attempt to look for JSON arrays, text, or other JSON types outside
+    of a parent JSON object.
+
+    From: https://stackoverflow.com/questions/54235528/how-to-find-json-object-in-text-with-python
+    """
+    pos = 0
+    while True:
+        match = text.find(start_str, pos)
+        match += len(start_str)
+        if match == -1:
+            break
+        try:
+            result, index = decoder.raw_decode(text[match:])
+            yield result
+            pos = match + index
+        except ValueError:
+            pos = match + 1
+
+
+if __name__ == "__main__":
+    # get_all_fangraphs_pages()
+    # post_all_fangraphs_projections_to_postgres()
+    # get_fangraphs_actuals()
+    # get_statcast_batter_actuals()
+    # get_statcast_pitcher_actuals()
+    get_statcast_batter_data()
