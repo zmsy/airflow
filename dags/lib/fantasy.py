@@ -179,7 +179,7 @@ def get_statcast_batter_actuals():
     conn = engine.connect()
     statcast_results = pybaseball.batting_stats_bref()
     statcast_results.to_sql('batters_statcast_actuals', conn, schema="fantasy", if_exists="replace")
-    conn.execute("grant select on fantasy.batters_statcast to public")
+    conn.execute("grant select on fantasy.batters_statcast_actuals to public")
 
 
 def get_statcast_pitcher_actuals():
@@ -190,7 +190,7 @@ def get_statcast_pitcher_actuals():
     conn = engine.connect()
     statcast_results = pybaseball.pitching_stats_bref()
     statcast_results.to_sql('pitchers_statcast_actuals', conn, schema="fantasy", if_exists="replace")
-    conn.execute("grant select on fantasy.pitchers_statcast to public")
+    conn.execute("grant select on fantasy.pitchers_statcast_actuals to public")
 
 
 def get_statcast_batter_data():
@@ -245,6 +245,6 @@ if __name__ == "__main__":
     # get_all_fangraphs_pages()
     # post_all_fangraphs_projections_to_postgres()
     # get_fangraphs_actuals()
-    # get_statcast_batter_actuals()
-    # get_statcast_pitcher_actuals()
+    get_statcast_batter_actuals()
+    get_statcast_pitcher_actuals()
     get_statcast_batter_data()

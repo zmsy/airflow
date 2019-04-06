@@ -5,3 +5,4 @@ pandas
 psycopg2-binary
 requests
 SQLAlchemy
+pybaseball
