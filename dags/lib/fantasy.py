@@ -131,9 +131,10 @@ def post_fangraphs_projections_html_to_postgres(html_file):
         # read the file and get rid of the pager table
         btxt = bhtml.read()
         soup = BeautifulSoup(btxt, "lxml")
-        pager = soup.find('tr', attrs={'class':'rgPager'})
+        pager = soup.find_all('tr', attrs={'class':'rgPager'})
         if pager:
-            pager.decompose() # remove pager
+            for p in pager:
+                p.decompose() # remove pager
         validated_html = soup.prettify("utf-8")  # prettify for debug
 
         # read_html returns ALL tables, we just want the last one.
