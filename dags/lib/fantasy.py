@@ -166,7 +166,7 @@ def post_all_fangraphs_projections_to_postgres():
     Invoke post_fangraphs_projections_html_to_postgres for each of the
     projections that we want.
     """
-    post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts.html"))
+    # post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts.html"))
     post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts_ros.html"))
     post_fangraphs_projections_html_to_postgres(output_path("pitchers_projections_depth_charts.html"))
     post_fangraphs_projections_html_to_postgres(output_path("pitchers_projections_depth_charts_ros.html"))
@@ -220,6 +220,32 @@ def get_statcast_batter_data():
     conn.execute("grant select on fantasy.batters_statcast to public")
 
 
+def get_pitcher_list_top_100():
+    """
+    Retrieve the pitcher list top 100 by parsing the main page and picking the
+    first article in the list.
+    """
+    url1 = "https://www.pitcherlist.com/category/articles/the-list/"
+    user_agent_str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
+    headers = {'User-Agent': user_agent_str}
+    response = requests.get(url1, headers=headers)
+    soup = BeautifulSoup(response.text)
+
+    scripts = soup.find("div", {"class": "entry-content"})
+    url2 = scripts.find("a")['href'] # get the first link
+    response = requests.get(url2, headers=headers)
+
+    # extract data frames from HTML
+    all_df = pd.read_html(response.text)
+    the_list = all_df[0]
+
+    # post to postgres
+    engine = get_sqlalchemy_engine()
+    conn = engine.connect()
+    the_list.to_sql('pitchers_pitcherlist_100', conn, schema="fantasy", if_exists="replace")
+    conn.execute("grant select on fantasy.pitchers_pitcherlist_100 to public")
+
+
 def extract_json_objects(text, start_str="{", decoder=json.JSONDecoder()):
     """Find JSON objects in text, and yield the decoded JSON data
 
@@ -246,6 +272,7 @@ if __name__ == "__main__":
     # get_all_fangraphs_pages()
     # post_all_fangraphs_projections_to_postgres()
     # get_fangraphs_actuals()
-    get_statcast_batter_actuals()
-    get_statcast_pitcher_actuals()
-    get_statcast_batter_data()
+    # get_statcast_batter_actuals()
+    # get_statcast_pitcher_actuals()
+    # get_statcast_batter_data()
+    get_pitcher_list_top_100()
