@@ -229,14 +229,14 @@ def get_pitcher_list_top_100():
     user_agent_str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
     headers = {'User-Agent': user_agent_str}
     response = requests.get(url1, headers=headers)
-    soup = BeautifulSoup(response.text)
+    soup = BeautifulSoup(response.text, features="lxml")
 
     scripts = soup.find("div", {"class": "entry-content"})
     url2 = scripts.find("a")['href'] # get the first link
     response = requests.get(url2, headers=headers)
 
     # extract data frames from HTML
-    all_df = pd.read_html(response.text)
+    all_df = pd.read_html(response.text, features="lxml")
     the_list = all_df[0]
 
     # post to postgres
