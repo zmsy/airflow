@@ -236,8 +236,9 @@ def get_pitcher_list_top_100():
     response = requests.get(url2, headers=headers)
 
     # extract data frames from HTML
-    all_df = pd.read_html(response.text, features="lxml")
+    all_df = pd.read_html(response.text)
     the_list = all_df[0]
+    replace_names(the_list, "Pitcher")
 
     # post to postgres
     engine = get_sqlalchemy_engine()
@@ -266,6 +267,18 @@ def extract_json_objects(text, start_str="{", decoder=json.JSONDecoder()):
             pos = match + index
         except ValueError:
             pos = match + 1
+
+
+def replace_names(df, name_col):
+    """
+    Take the list of names that are known to misalign between different sources and
+    align them to the name used in ESPN.
+    """
+    replacements = {
+        "Peter Alonso": "Pete Alonso",
+        "Matt Boyd": "Matthew Boyd"
+    }
+    df[name_col] = df[name_col].apply(lambda x: replacements.get(x, x))
 
 
 if __name__ == "__main__":
