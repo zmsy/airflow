@@ -151,7 +151,7 @@ def post_fangraphs_projections_html_to_postgres(html_file):
         if "_pct" in col:
             df[col] = df[col].apply(lambda x: parse_pctg(x))
     df.dropna(inplace=True)
-    replace_names(df, "full_name")
+    replace_names(df, "name")
 
     # create sqlalchemy engine for putting dataframe to postgres
     engine = get_sqlalchemy_engine()
@@ -167,7 +167,7 @@ def post_all_fangraphs_projections_to_postgres():
     Invoke post_fangraphs_projections_html_to_postgres for each of the
     projections that we want.
     """
-    # post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts.html"))
+    post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts.html"))
     post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts_ros.html"))
     post_fangraphs_projections_html_to_postgres(output_path("pitchers_projections_depth_charts.html"))
     post_fangraphs_projections_html_to_postgres(output_path("pitchers_projections_depth_charts_ros.html"))
@@ -289,9 +289,9 @@ def replace_names(df, name_col):
 
 if __name__ == "__main__":
     # get_all_fangraphs_pages()
-    # post_all_fangraphs_projections_to_postgres()
+    post_all_fangraphs_projections_to_postgres()
     # get_fangraphs_actuals()
     # get_statcast_batter_actuals()
     # get_statcast_pitcher_actuals()
     # get_statcast_batter_data()
-    get_pitcher_list_top_100()
+    # get_pitcher_list_top_100()
