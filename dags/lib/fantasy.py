@@ -151,6 +151,7 @@ def post_fangraphs_projections_html_to_postgres(html_file):
         if "_pct" in col:
             df[col] = df[col].apply(lambda x: parse_pctg(x))
     df.dropna(inplace=True)
+    replace_names(df, "full_name")
 
     # create sqlalchemy engine for putting dataframe to postgres
     engine = get_sqlalchemy_engine()
@@ -179,6 +180,8 @@ def get_statcast_batter_actuals():
     engine = get_sqlalchemy_engine()
     conn = engine.connect()
     statcast_results = pybaseball.batting_stats_bref()
+    replace_names(statcast_results, "Name")
+    statcast_results.columns = [x.lower() for x in statcast_results.columns]
     statcast_results.to_sql('batters_statcast_actuals', conn, schema="fantasy", if_exists="replace")
     conn.execute("grant select on fantasy.batters_statcast_actuals to public")
 
@@ -190,6 +193,8 @@ def get_statcast_pitcher_actuals():
     engine = get_sqlalchemy_engine()
     conn = engine.connect()
     statcast_results = pybaseball.pitching_stats_bref()
+    replace_names(statcast_results, "Name")
+    statcast_results.columns = [x.lower() for x in statcast_results.columns]
     statcast_results.to_sql('pitchers_statcast_actuals', conn, schema="fantasy", if_exists="replace")
     conn.execute("grant select on fantasy.pitchers_statcast_actuals to public")
 
@@ -253,7 +258,8 @@ def extract_json_objects(text, start_str="{", decoder=json.JSONDecoder()):
     Does not attempt to look for JSON arrays, text, or other JSON types outside
     of a parent JSON object.
 
-    From: https://stackoverflow.com/questions/54235528/how-to-find-json-object-in-text-with-python
+    Original stackoverflow post where I got this from:
+    https://stackoverflow.com/questions/54235528/how-to-find-json-object-in-text-with-python
     """
     pos = 0
     while True:
