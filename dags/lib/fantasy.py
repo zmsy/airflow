@@ -289,9 +289,9 @@ def replace_names(df, name_col):
 
 if __name__ == "__main__":
     # get_all_fangraphs_pages()
-    post_all_fangraphs_projections_to_postgres()
+    # post_all_fangraphs_projections_to_postgres()
     # get_fangraphs_actuals()
     # get_statcast_batter_actuals()
     # get_statcast_pitcher_actuals()
     # get_statcast_batter_data()
-    # get_pitcher_list_top_100()
+    get_pitcher_list_top_100()

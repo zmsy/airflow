@@ -89,12 +89,12 @@ t10 = PythonOperator(
     default_args=default_args
 )
 
-t11 = PythonOperator(
-    dag=dag,
-    task_id="get_pitcher_list_top_100",
-    python_callable=fantasy.get_pitcher_list_top_100,
-    default_args=default_args
-)
+# t11 = PythonOperator(
+#     dag=dag,
+#     task_id="get_pitcher_list_top_100",
+#     python_callable=fantasy.get_pitcher_list_top_100,
+#     default_args=default_args
+# )
 
 t2.set_upstream(t1)
 t3.set_upstream(t1)
@@ -107,4 +107,4 @@ t9.set_upstream(t2)
 t10.set_upstream(t3)
 t10.set_upstream(t6)
 t10.set_upstream(t8)
-t11.set_upstream(t1)
+# t11.set_upstream(t1)
