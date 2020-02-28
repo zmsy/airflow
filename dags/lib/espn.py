@@ -371,8 +371,13 @@ def load_players_to_postgres():
             lastName varchar(64),
 
             averageDraftPosition numeric(6, 2),
+            averageDraftPositionPctChg numeric(6, 2),
+            percentChange numeric(6, 2),
             percentOwned numeric(6, 2),
             percentStarted numeric(6, 2),
+            positionalRanking integer,
+            totalRanking integer,
+            totalRating numeric(6, 2),
             proTeamId integer,
             rosterLocked boolean,
 
@@ -420,8 +425,13 @@ def load_players_to_postgres():
                 player.get("player", {}).get("jersey"),
                 player.get("player", {}).get("lastName"),
                 player.get("player", {}).get("ownership", {}).get("averageDraftPosition"),
+                player.get("player", {}).get("ownership", {}).get("averageDraftPositionPercentChange"),
+                player.get("player", {}).get("ownership", {}).get("percentChange"),
                 player.get("player", {}).get("ownership", {}).get("percentOwned"),
                 player.get("player", {}).get("ownership", {}).get("percentStarted"),
+                player.get("ratings", {}).get("0", {}).get("positionalRanking"),
+                player.get("ratings", {}).get("0", {}).get("totalRanking"),
+                player.get("ratings", {}).get("0", {}).get("totalRating"),
                 player.get("player", {}).get("proTeamId"),
                 player.get("rosterLocked"),
                 player.get("status"),
@@ -439,8 +449,9 @@ def load_players_to_postgres():
         espn_id, onTeamId, active, defaultPositionId,
         auctionValue, draftRank, draftRankType, droppable, firstName,
         fullName, injured, injuryStatus, jersey, lastName,
-        averageDraftPosition, percentOwned, percentStarted, proTeamId, rosterLocked,
-        status, tradeLocked, eligibility, position
+        averageDraftPosition, averageDraftPositionPctChg, percentChange,
+        percentOwned, percentStarted, positionalRanking, totalRanking, totalRating,
+        proTeamId, rosterLocked, status, tradeLocked, eligibility, position
         )
         VALUES %s
         """,
