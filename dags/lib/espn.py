@@ -28,8 +28,9 @@ ESPN_S2 = os.environ["ESPN_S2"]
 
 # ## Get Roster Data
 # This will rip the roster information from ESPN and save it to a local CSV file.
-ESPN_ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/2019/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
-ESPN_PLAYERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/2019/segments/0/leagues/{league_id}?scoringPeriodId=0&view=kona_player_info"
+ESPN_ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
+ESPN_PLAYERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?scoringPeriodId=0&view=kona_player_info"
+SEASON_ID = 2020
 ESPN_LEAGUE_ID = 15594
 
 
@@ -82,7 +83,10 @@ def get_espn_league_data():
     - draft data.
     """
     league_data_raw = requests.get(
-        ESPN_ROSTERS_URL.format(league_id=ESPN_LEAGUE_ID),
+        ESPN_ROSTERS_URL.format(
+            season=SEASON_ID,
+            league_id=ESPN_LEAGUE_ID
+        ),
         cookies=get_espn_cookies(),
         headers=get_espn_headers(),
     )
@@ -114,7 +118,10 @@ def get_espn_player_data():
 
     headers = {"X-Fantasy-Filter": json.dumps(x_fantasy_filter)}
     data = requests.get(
-        ESPN_PLAYERS_URL.format(league_id=ESPN_LEAGUE_ID),
+        ESPN_PLAYERS_URL.format(
+            season=SEASON_ID,
+            league_id=ESPN_LEAGUE_ID
+        ),
         headers=headers,
         cookies=get_espn_cookies(),
     )
