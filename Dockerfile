@@ -17,9 +17,11 @@ RUN apt-get install -y build-essential \
     git
 
 # install all of the python reqs
-COPY requirements.txt .
 ENV AIRFLOW_GPL_UNIDECODE="yes"
-RUN pip3 install -r requirements.txt
+RUN pip install pipenv
+COPY Pipfile .
+COPY Pipfile.lock .
+RUN pipenv install --deploy
 
 COPY . .
 

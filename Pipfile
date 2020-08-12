@@ -1,0 +1,19 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+apache-airflow = "*"
+beautifulsoup4 = "*"
+numpy = "*"
+pandas = "*"
+psycopg2-binary = "*"
+requests = "*"
+pybaseball = "*"
+SQLAlchemy = "*"
+
+[requires]
+python_version = "3.7"

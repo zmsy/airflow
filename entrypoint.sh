@@ -1,3 +1,4 @@
+pipenv shell
 airflow initdb
 airflow scheduler &
 sleep 10
