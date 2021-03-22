@@ -26,6 +26,7 @@ POSTGRES_IP = "192.168.0.118"
 POSTGRES_PORT = 5432
 POSTGRES_DB = "postgres"
 
+ACTIVE_SEASON = 2021
 
 def output_path(file_name):
     """
@@ -89,12 +90,11 @@ def get_fangraphs_actuals():
     Return the actuals for each player.
     """
     # static urls
-    season = datetime.datetime.now().year
     PITCHERS_URL = "https://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=0&type=c,36,37,38,40,-1,120,121,217,-1,24,41,42,43,44,-1,117,118,119,-1,6,45,124,-1,62,122,13&season={season}&month=0&season1={season}&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_100000".format(
-        season=season
+        season=ACTIVE_SEASON
     )
     BATTERS_URL = "https://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=0&type=8&season={season}&month=0&season1={season}&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_10000".format(
-        season=season
+        season=ACTIVE_SEASON
     )
 
     # # request the data
@@ -203,7 +203,9 @@ def get_statcast_batter_data():
     """
     This parses out the statcast information from the baseball savant website.
     """
-    url = "https://baseballsavant.mlb.com/statcast_leaderboard?year=2018&player_type=resp_batter_id"
+    url = "https://baseballsavant.mlb.com/statcast_leaderboard?year={season}&player_type=resp_batter_id".format(
+        season=ACTIVE_SEASON
+    )
     response = requests.get(url)
     soup = BeautifulSoup(response.text)
     scripts = soup.find_all('script')
@@ -225,7 +227,7 @@ def get_statcast_batter_data():
     conn.execute("grant select on fantasy.batters_statcast to public")
 
 
-def get_pitcher_list_top_100():
+def get_pitcherlist_top_100():
     """
     Retrieve the pitcher list top 100 by parsing the main page and picking the
     first article in the list.
@@ -237,8 +239,8 @@ def get_pitcher_list_top_100():
     soup = BeautifulSoup(response.text, features="lxml")
 
     # id = leaderboard-table
-    scripts = soup.find("div", {"class": "entry-content"})
-    url2 = scripts.find("a")['href'] # get the first link
+    scripts = soup.find("a", {"class": "link"})
+    url2 = scripts['href'] # get the first link
     response = requests.get(url2, headers=headers)
 
     # extract data frames from HTML
@@ -265,9 +267,9 @@ def extract_json_objects(text, start_str="{", decoder=json.JSONDecoder()):
     pos = 0
     while True:
         match = text.find(start_str, pos)
-        match += len(start_str)
         if match == -1:
             break
+        match += len(start_str)
         try:
             result, index = decoder.raw_decode(text[match:])
             yield result
@@ -295,4 +297,4 @@ if __name__ == "__main__":
     # get_statcast_batter_actuals()
     # get_statcast_pitcher_actuals()
     # get_statcast_batter_data()
-    get_pitcher_list_top_100()
+    get_pitcherlist_top_100()

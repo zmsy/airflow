@@ -10,3 +10,4 @@ cfg_backup.cfg
 output/*
 .DS_Store
 .venv
+.env
