@@ -23,6 +23,7 @@ COPY Pipfile.lock .
 RUN jq -r '.default | to_entries[] | .key + .value.version' Pipfile.lock > requirements.txt
 RUN pip3 install -r requirements.txt
 
+
 COPY . .
 
 RUN chmod +x entrypoint.sh
