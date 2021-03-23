@@ -13,16 +13,16 @@ RUN apt-get install -y build-essential \
     libssl-dev \
     libffi-dev \
     curl \
-    vim \
-    git
+    jq
 
 # install all of the python reqs
 ENV AIRFLOW_GPL_UNIDECODE="yes"
-RUN pip install pipenv
-COPY Pipfile .
 COPY Pipfile.lock .
-RUN pipenv run pip freeze > requirements.txt
-RUN pip install -r requirements.txt
+
+# export Pipfile.lock to requirements.txt
+RUN jq -r '.default | to_entries[] | .key + .value.version' Pipfile.lock > requirements.txt
+RUN pip3 install -r requirements.txt
+
 
 COPY . .
 
