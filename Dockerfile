@@ -21,7 +21,8 @@ ENV AIRFLOW_GPL_UNIDECODE="yes"
 RUN pip install pipenv
 COPY Pipfile .
 COPY Pipfile.lock .
-RUN pipenv install --deploy
+RUN pipenv run pip freeze > requirements.txt
+RUN pip install -r requirements.txt
 
 COPY . .
 
