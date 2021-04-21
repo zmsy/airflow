@@ -9,6 +9,7 @@ import csv
 import datetime
 import json
 import os
+import re
 import subprocess
 
 import numpy as np
@@ -28,6 +29,71 @@ POSTGRES_DB = "postgres"
 
 ACTIVE_SEASON = 2021
 
+NAME_REPLACEMENTS = {
+    "Alexander Kirilloff": "Alex Kirilloff",
+    "Alexander Lange": "Alex Lange",
+    "Alexander Wells": "Alex Wells",
+    "Brent Honeywell": "Brent Honeywell Jr.",
+    "Caleb Raleigh": "Cal Raleigh",
+    "Chad Tromp": "Chadwick Tromp",
+    "Cedric Mullins II": "Cedric Mullins",
+    "D.J. Johnson": "DJ Johnson",
+    "D.J. Stewart": "DJ Stewart",
+    "Dan Vogelbach": "Daniel Vogelbach",
+    "Daniel Johnson Jr.": "Daniel Johnson",
+    "Daniel Poncedeleon": "Daniel Ponce de Leon",
+    "Dee Gordon": "Dee Strange-Gordon",
+    "Donnie Walton": "Donovan Walton",
+    "Eduardo Rodriguez": "Eduardo Rodríguez",
+    "Giovanny Urshela": "Gio Urshela",
+    "Gregory Deichmann": "Greg Deichmann",
+    "Ha-Seong Kim": "Haseong Kim",
+    "Ha-seong Kim": "Haseong Kim",
+    "Jacob Brentz": "Jake Brentz",
+    "Jacob Lamb": "Jake Lamb",
+    "Jason Groome": "Jay Groome",
+    "Jasrado Chisholm": "Jazz Chisholm",
+    "Javier Guerra": "Javy Guerra",
+    "Joshua James": "Josh James",
+    "Jonathan Brubaker": "JT Brubaker",
+    "Kwang hyun Kim": "Kwang-Hyun Kim",
+    "Kwang-hyun Kim": "Kwang-Hyun Kim",
+    "Lance McCullers": "Lance McCullers Jr.",
+    "Lourdes Gurriel": "Lourdes Gurriel Jr.",
+    "Lucas Raley": "Luke Raley",
+    "Luke Sims": "Lucas Sims",
+    "Matt Boyd": "Matthew Boyd",
+    "Matthew Cronin": "Matt Cronin",
+    "Matthew Manning": "Matt Manning",
+    "Michael Reed": "Mike Reed",
+    "Michael Soroka": "Mike Soroka",
+    "Michael Taylor": "Michael A. Taylor",
+    "Nicholas Castellanos": "Nick Castellanos",
+    "Nicholas Gordon": "Nick Gordon",
+    "Nicholas Lodolo": "Nick Lodolo",
+    "Peter Alonso": "Pete Alonso",
+    "Ronald Acuna Jr.": "Ronald Acuna",
+    "Samuel Clay": "Sam Clay",
+    "Samuel Delaplane": "Sam Delaplane",
+    "Samuel Long": "Sam Long",
+    "Shed Long": "Shed Long Jr.",
+    "Shohei Ohtani": "Shohei Ohtani",
+    "Steven Souza": "Steven Souza Jr.",
+    "Timothy Cate": "Tim Cate",
+    "Travis D'Arnaud": "Travis d'Arnaud",
+    "Vincent Velasquez": "Vince Velasquez",
+    "Will Smith (RP)": "Will Smith",
+    "William Vest": "Will Vest",
+    "Yandy Diaz": "Yandy Díaz",
+    "Yulieski Gurriel": "Yuli Gurriel",
+    "Zacary Lowther": "Zac Lowther",
+    "Zach Britton": "Zack Britton",
+    "Zachary Short": "Zack Short",
+    "Zachery Brown": "Zack Brown",
+    "Zachery Pop": "Zach Pop",
+}
+
+
 def output_path(file_name):
     """
     Retrieves the global output folder and any files in it.
@@ -42,7 +108,7 @@ def get_sqlalchemy_engine():
     # ## Write Information Back to Database
     #
     return sqlalchemy.create_engine(
-        "postgres://{user}:{password}@{host}:{port}/{db}".format(
+        "postgresql://{user}:{password}@{host}:{port}/{db}".format(
             user=POSTGRES_USER,
             password=POSTGRES_PASSWORD,
             host=POSTGRES_IP,
@@ -85,6 +151,28 @@ def parse_array_from_fangraphs_html(input_html, out_file_name):
         writer.writerows(rows)
 
 
+def pandas_parse_actuals(input_html, out_file_name):
+    """
+    Version of the above function that instead parses using Pandas.
+    """
+    all_dfs = pd.read_html(input_html)
+    df = all_dfs[16]  # read_html returns all DFs, this is the one we need
+
+    # columns are tuples for some reason
+    df.columns = [replace_chars(x[1].lower()) for x in df.columns]
+
+    # write dataframe out to CSV
+    df.to_csv(output_path(out_file_name))
+
+    # also write to postgres
+    engine = get_sqlalchemy_engine()
+    conn = engine.connect()
+    table_name = os.path.splitext(out_file_name)[0]
+    df.to_sql(table_name, conn, schema="fantasy", if_exists="replace")
+    conn.execute("GRANT SELECT ON fantasy.{} TO PUBLIC".format(table_name))
+    conn.close()
+
+
 def get_fangraphs_actuals():
     """
     Return the actuals for each player.
@@ -102,8 +190,8 @@ def get_fangraphs_actuals():
     batters_html = requests.get(BATTERS_URL).text
 
     # Now that we have all of the player data, I'm writing these out to a CSV file if I want to load them again later without having to run the requests to those pages once more.
-    parse_array_from_fangraphs_html(batters_html, "batters_actuals.csv")
-    parse_array_from_fangraphs_html(pitchers_html, "pitchers_actuals.csv")
+    pandas_parse_actuals(batters_html, "batters_actuals.csv")
+    pandas_parse_actuals(pitchers_html, "pitchers_actuals.csv")
 
 
 def parse_pctg(value):
@@ -131,10 +219,10 @@ def post_fangraphs_projections_html_to_postgres(html_file):
         # read the file and get rid of the pager table
         btxt = bhtml.read()
         soup = BeautifulSoup(btxt, "lxml")
-        pager = soup.find_all('tr', attrs={'class':'rgPager'})
+        pager = soup.find_all("tr", attrs={"class": "rgPager"})
         if pager:
             for p in pager:
-                p.decompose() # remove pager
+                p.decompose()  # remove pager
         validated_html = soup.prettify("utf-8")  # prettify for debug
 
         # read_html returns ALL tables, we just want the last one.
@@ -167,10 +255,18 @@ def post_all_fangraphs_projections_to_postgres():
     Invoke post_fangraphs_projections_html_to_postgres for each of the
     projections that we want.
     """
-    post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts.html"))
-    post_fangraphs_projections_html_to_postgres(output_path("batters_projections_depth_charts_ros.html"))
-    post_fangraphs_projections_html_to_postgres(output_path("pitchers_projections_depth_charts.html"))
-    post_fangraphs_projections_html_to_postgres(output_path("pitchers_projections_depth_charts_ros.html"))
+    post_fangraphs_projections_html_to_postgres(
+        output_path("batters_projections_depth_charts.html")
+    )
+    post_fangraphs_projections_html_to_postgres(
+        output_path("batters_projections_depth_charts_ros.html")
+    )
+    post_fangraphs_projections_html_to_postgres(
+        output_path("pitchers_projections_depth_charts.html")
+    )
+    post_fangraphs_projections_html_to_postgres(
+        output_path("pitchers_projections_depth_charts_ros.html")
+    )
 
 
 def get_statcast_batter_actuals():
@@ -179,10 +275,10 @@ def get_statcast_batter_actuals():
     """
     engine = get_sqlalchemy_engine()
     conn = engine.connect()
-    statcast_results = pybaseball.batting_stats_bref()
+    statcast_results = pybaseball.batting_stats_bref(season=ACTIVE_SEASON)
     replace_names(statcast_results, "Name")
-    statcast_results.columns = [x.lower() for x in statcast_results.columns]
-    statcast_results.to_sql('batters_statcast_actuals', conn, schema="fantasy", if_exists="replace")
+    statcast_results.columns = [replace_chars(x.lower()) for x in statcast_results.columns]
+    statcast_results.to_sql("batters_statcast_actuals", conn, schema="fantasy", if_exists="replace")
     conn.execute("grant select on fantasy.batters_statcast_actuals to public")
 
 
@@ -192,10 +288,12 @@ def get_statcast_pitcher_actuals():
     """
     engine = get_sqlalchemy_engine()
     conn = engine.connect()
-    statcast_results = pybaseball.pitching_stats_bref()
+    statcast_results = pybaseball.pitching_stats_bref(season=ACTIVE_SEASON)
     replace_names(statcast_results, "Name")
-    statcast_results.columns = [x.lower() for x in statcast_results.columns]
-    statcast_results.to_sql('pitchers_statcast_actuals', conn, schema="fantasy", if_exists="replace")
+    statcast_results.columns = [replace_chars(x.lower()) for x in statcast_results.columns]
+    statcast_results.to_sql(
+        "pitchers_statcast_actuals", conn, schema="fantasy", if_exists="replace"
+    )
     conn.execute("grant select on fantasy.pitchers_statcast_actuals to public")
 
 
@@ -207,12 +305,12 @@ def get_statcast_batter_data():
         season=ACTIVE_SEASON
     )
     response = requests.get(url)
-    soup = BeautifulSoup(response.text)
-    scripts = soup.find_all('script')
-    data_script = scripts[9]   # hardcoding this for now, may need updates
+    soup = BeautifulSoup(response.text, features="lxml")
+    scripts = soup.find_all("script")
+    data_script = scripts[7]  # hardcoding this for now, may need updates
 
     # decode the script. this loads the js and keys into the 'leaderboard_data' variable.
-    json_text = extract_json_objects(data_script.text, "leaderboard_data = ")
+    json_text = extract_json_objects(data_script.string, "leaderboard_data = ")
     players_list = []
     for p in json_text:
         if isinstance(p, list):
@@ -223,7 +321,7 @@ def get_statcast_batter_data():
     df = pd.DataFrame(players_list)
     engine = get_sqlalchemy_engine()
     conn = engine.connect()
-    df.to_sql('batters_statcast', conn, schema="fantasy", if_exists="replace")
+    df.to_sql("batters_statcast", conn, schema="fantasy", if_exists="replace")
     conn.execute("grant select on fantasy.batters_statcast to public")
 
 
@@ -234,24 +332,36 @@ def get_pitcherlist_top_100():
     """
     url1 = "https://www.pitcherlist.com/category/articles/the-list/"
     user_agent_str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
-    headers = {'User-Agent': user_agent_str}
+    headers = {"User-Agent": user_agent_str}
     response = requests.get(url1, headers=headers)
     soup = BeautifulSoup(response.text, features="lxml")
 
     # id = leaderboard-table
     scripts = soup.find("a", {"class": "link"})
-    url2 = scripts['href'] # get the first link
+    url2 = scripts["href"]  # get the first link
     response = requests.get(url2, headers=headers)
 
     # extract data frames from HTML
     all_df = pd.read_html(response.text)
-    the_list = all_df[0]
+    the_list = all_df[1]
     replace_names(the_list, "Pitcher")
+    the_list = the_list.drop(["Badges", "Change"], axis=1)
+
+    def find_tier(x: str, compiled_re: re.Pattern):
+        matches = compiled_re.findall(x)
+        if matches:
+            return matches[0]
+        return None
+
+    tier_regex = re.compile("(T[\d]+)")
+    the_list["Tier"] = the_list["Pitcher"].apply(lambda x: find_tier(x, tier_regex)).ffill()
+    the_list["Pitcher"] = the_list["Pitcher"].apply(lambda x: tier_regex.sub("", x))
+    the_list = the_list.rename(columns={"Rank": "rank", "Pitcher": "name", "Tier": "tier"})
 
     # post to postgres
     engine = get_sqlalchemy_engine()
     conn = engine.connect()
-    the_list.to_sql('pitchers_pitcherlist_100', conn, schema="fantasy", if_exists="replace")
+    the_list.to_sql("pitchers_pitcherlist_100", conn, schema="fantasy", if_exists="replace")
     conn.execute("grant select on fantasy.pitchers_pitcherlist_100 to public")
 
 
@@ -283,18 +393,32 @@ def replace_names(df, name_col):
     Take the list of names that are known to misalign between different sources and
     align them to the name used in ESPN.
     """
+    df[name_col] = df[name_col].apply(lambda x: NAME_REPLACEMENTS.get(x, x))
+
+
+def replace_chars(input_str: str):
+    """
+    Given a string, perform a number of string replacements to avoid screwing up
+    the underlying sql database.
+    """
     replacements = {
-        "Peter Alonso": "Pete Alonso",
-        "Matt Boyd": "Matthew Boyd"
+        "#": "idx",
+        "%": "_pct",
+        "-": "_",
+        "+": "_plus",
+        "/": "_per",
     }
-    df[name_col] = df[name_col].apply(lambda x: replacements.get(x, x))
+    for k, v in replacements.items():
+        input_str = input_str.replace(k, v)
+    
+    return input_str
 
 
 if __name__ == "__main__":
     # get_all_fangraphs_pages()
-    post_all_fangraphs_projections_to_postgres()
-    # get_fangraphs_actuals()
+    # post_all_fangraphs_projections_to_postgres()
+    get_fangraphs_actuals()
     # get_statcast_batter_actuals()
     # get_statcast_pitcher_actuals()
     # get_statcast_batter_data()
-    get_pitcherlist_top_100()
+    # get_pitcherlist_top_100()
