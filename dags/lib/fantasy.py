@@ -163,6 +163,10 @@ def pandas_parse_actuals(input_html, out_file_name):
 
     # write dataframe out to CSV
     df.to_csv(output_path(out_file_name))
+    df = df.head(-1) # drop buggy last row
+
+    # convert all applicable columns to numeric
+    df = df.apply(pd.to_numeric, errors='ignore')
 
     # also write to postgres
     engine = get_sqlalchemy_engine()
@@ -356,6 +360,7 @@ def get_pitcherlist_top_100():
     tier_regex = re.compile("(T[\d]+)")
     the_list["Tier"] = the_list["Pitcher"].apply(lambda x: find_tier(x, tier_regex)).ffill()
     the_list["Pitcher"] = the_list["Pitcher"].apply(lambda x: tier_regex.sub("", x))
+    the_list = the_list.apply(pd.to_numeric, errors='ignore')
     the_list = the_list.rename(columns={"Rank": "rank", "Pitcher": "name", "Tier": "tier"})
 
     # post to postgres
@@ -415,10 +420,10 @@ def replace_chars(input_str: str):
 
 
 if __name__ == "__main__":
-    # get_all_fangraphs_pages()
-    # post_all_fangraphs_projections_to_postgres()
+    get_all_fangraphs_pages()
+    post_all_fangraphs_projections_to_postgres()
     get_fangraphs_actuals()
-    # get_statcast_batter_actuals()
-    # get_statcast_pitcher_actuals()
-    # get_statcast_batter_data()
-    # get_pitcherlist_top_100()
+    get_statcast_batter_actuals()
+    get_statcast_pitcher_actuals()
+    get_statcast_batter_data()
+    get_pitcherlist_top_100()
