@@ -371,7 +371,7 @@ def load_players_to_postgres():
             lastName varchar(64),
 
             averageDraftPosition numeric(6, 2),
-            averageDraftPositionPctChg numeric(6, 2),
+            auctionValueAverage numeric(6, 2),
             percentChange numeric(6, 2),
             percentOwned numeric(6, 2),
             percentStarted numeric(6, 2),
@@ -425,7 +425,7 @@ def load_players_to_postgres():
                 player.get("player", {}).get("jersey"),
                 player.get("player", {}).get("lastName"),
                 player.get("player", {}).get("ownership", {}).get("averageDraftPosition"),
-                player.get("player", {}).get("ownership", {}).get("averageDraftPositionPercentChange"),
+                player.get("player", {}).get("ownership", {}).get("auctionValueAverage"),
                 player.get("player", {}).get("ownership", {}).get("percentChange"),
                 player.get("player", {}).get("ownership", {}).get("percentOwned"),
                 player.get("player", {}).get("ownership", {}).get("percentStarted"),
@@ -449,7 +449,7 @@ def load_players_to_postgres():
         espn_id, onTeamId, active, defaultPositionId,
         auctionValue, draftRank, draftRankType, droppable, firstName,
         fullName, injured, injuryStatus, jersey, lastName,
-        averageDraftPosition, averageDraftPositionPctChg, percentChange,
+        averageDraftPosition, auctionValueAverage, percentChange,
         percentOwned, percentStarted, positionalRanking, totalRanking, totalRating,
         proTeamId, rosterLocked, status, tradeLocked, eligibility, position
         )
