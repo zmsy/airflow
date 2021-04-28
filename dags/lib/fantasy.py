@@ -29,6 +29,7 @@ POSTGRES_DB = "postgres"
 
 ACTIVE_SEASON = 2021
 
+# espn names are canon for this analysis - use those!
 NAME_REPLACEMENTS = {
     "Alexander Kirilloff": "Alex Kirilloff",
     "Alexander Lange": "Alex Lange",
@@ -49,10 +50,11 @@ NAME_REPLACEMENTS = {
     "Gregory Deichmann": "Greg Deichmann",
     "Ha-Seong Kim": "Haseong Kim",
     "Ha-seong Kim": "Haseong Kim",
+    "Hyun-Jin Ryu": "Hyun Jin Ryu",
     "Jacob Brentz": "Jake Brentz",
     "Jacob Lamb": "Jake Lamb",
     "Jason Groome": "Jay Groome",
-    "Jasrado Chisholm": "Jazz Chisholm",
+    "Jasrado Chisholm": "Jazz Chisholm Jr.",
     "Javier Guerra": "Javy Guerra",
     "Joshua James": "Josh James",
     "Jonathan Brubaker": "JT Brubaker",
@@ -72,7 +74,6 @@ NAME_REPLACEMENTS = {
     "Nicholas Gordon": "Nick Gordon",
     "Nicholas Lodolo": "Nick Lodolo",
     "Peter Alonso": "Pete Alonso",
-    "Ronald Acuna Jr.": "Ronald Acuna",
     "Samuel Clay": "Sam Clay",
     "Samuel Delaplane": "Sam Delaplane",
     "Samuel Long": "Sam Long",
