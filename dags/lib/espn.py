@@ -5,15 +5,11 @@ Get data from the ESPN league and insert into Postgres.
 """
 
 import requests
-import csv
 import datetime
-import subprocess
 import json
 import os
-import sqlalchemy
 import psycopg2
 from psycopg2.extras import execute_values
-from bs4 import BeautifulSoup
 
 # connection information for the database
 POSTGRES_USER = os.environ.get("POSTGRES_USER")
@@ -30,7 +26,7 @@ ESPN_S2 = os.environ["ESPN_S2"]
 # This will rip the roster information from ESPN and save it to a local CSV file.
 ESPN_ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
 ESPN_PLAYERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?scoringPeriodId=0&view=kona_player_info"
-SEASON_ID = 2021
+SEASON_ID = 2022
 ESPN_LEAGUE_ID = 15594
 
 

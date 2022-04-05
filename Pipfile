@@ -14,10 +14,10 @@ pandas = "*"
 psycopg2-binary = "*"
 requests = "*"
 pybaseball = "*"
-SQLAlchemy = "*"
+SQLAlchemy = "==1.4"
 
 [requires]
-python_version = "3.7"
+python_version = "3.10"
 
-[pipenv]
-allow_prereleases = true
+[scripts]
+format = "black ./dags"
