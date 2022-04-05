@@ -6,15 +6,12 @@ for later analysis.
 """
 
 import csv
-import datetime
 import json
 import os
 import re
 import subprocess
 
-import numpy as np
 import pandas as pd
-import psycopg2
 import pybaseball
 import requests
 import sqlalchemy
@@ -27,75 +24,13 @@ POSTGRES_IP = "192.168.0.118"
 POSTGRES_PORT = 5432
 POSTGRES_DB = "postgres"
 
-ACTIVE_SEASON = 2021
+ACTIVE_SEASON = 2022
 
 # espn names are canon for this analysis - use those!
-NAME_REPLACEMENTS = {
-    "Alexander Kirilloff": "Alex Kirilloff",
-    "Alexander Lange": "Alex Lange",
-    "Alexander Wells": "Alex Wells",
-    "Brent Honeywell": "Brent Honeywell Jr.",
-    "Caleb Raleigh": "Cal Raleigh",
-    "Chad Tromp": "Chadwick Tromp",
-    "Cedric Mullins II": "Cedric Mullins",
-    "D.J. Johnson": "DJ Johnson",
-    "D.J. Stewart": "DJ Stewart",
-    "Dan Vogelbach": "Daniel Vogelbach",
-    "Daniel Johnson Jr.": "Daniel Johnson",
-    "Daniel Poncedeleon": "Daniel Ponce de Leon",
-    "Dee Gordon": "Dee Strange-Gordon",
-    "Donnie Walton": "Donovan Walton",
-    "Eduardo Rodriguez": "Eduardo Rodríguez",
-    "Giovanny Urshela": "Gio Urshela",
-    "Gregory Deichmann": "Greg Deichmann",
-    "Ha-Seong Kim": "Haseong Kim",
-    "Ha-seong Kim": "Haseong Kim",
-    "Hyun-Jin Ryu": "Hyun Jin Ryu",
-    "Jacob Brentz": "Jake Brentz",
-    "Jacob Lamb": "Jake Lamb",
-    "Jason Groome": "Jay Groome",
-    "Jasrado Chisholm": "Jazz Chisholm Jr.",
-    "Javier Guerra": "Javy Guerra",
-    "Joshua James": "Josh James",
-    "Jonathan Brubaker": "JT Brubaker",
-    "Kwang hyun Kim": "Kwang-Hyun Kim",
-    "Kwang-hyun Kim": "Kwang-Hyun Kim",
-    "Lance McCullers": "Lance McCullers Jr.",
-    "Lourdes Gurriel": "Lourdes Gurriel Jr.",
-    "Lucas Raley": "Luke Raley",
-    "Luke Sims": "Lucas Sims",
-    "Matt Boyd": "Matthew Boyd",
-    "Matthew Cronin": "Matt Cronin",
-    "Matthew Manning": "Matt Manning",
-    "Michael Reed": "Mike Reed",
-    "Michael Soroka": "Mike Soroka",
-    "Michael Taylor": "Michael A. Taylor",
-    "Nicholas Castellanos": "Nick Castellanos",
-    "Nicholas Gordon": "Nick Gordon",
-    "Nicholas Lodolo": "Nick Lodolo",
-    "Peter Alonso": "Pete Alonso",
-    "Samuel Clay": "Sam Clay",
-    "Samuel Delaplane": "Sam Delaplane",
-    "Samuel Long": "Sam Long",
-    "Shed Long": "Shed Long Jr.",
-    "Shohei Ohtani": "Shohei Ohtani",
-    "Steven Souza": "Steven Souza Jr.",
-    "Timothy Cate": "Tim Cate",
-    "Travis D'Arnaud": "Travis d'Arnaud",
-    "Vincent Velasquez": "Vince Velasquez",
-    "Will Smith (RP)": "Will Smith",
-    "William Vest": "Will Vest",
-    "Yandy Diaz": "Yandy Díaz",
-    "Yulieski Gurriel": "Yuli Gurriel",
-    "Zacary Lowther": "Zac Lowther",
-    "Zach Britton": "Zack Britton",
-    "Zachary Short": "Zack Short",
-    "Zachery Brown": "Zack Brown",
-    "Zachery Pop": "Zach Pop",
-}
+NAME_REPLACEMENTS = {}
 
 
-def output_path(file_name):
+def output_path(file_name: str) -> str:
     """
     Retrieves the global output folder and any files in it.
     """
@@ -164,10 +99,10 @@ def pandas_parse_actuals(input_html, out_file_name):
 
     # write dataframe out to CSV
     df.to_csv(output_path(out_file_name))
-    df = df.head(-1) # drop buggy last row
+    df = df.head(-1)  # drop buggy last row
 
     # convert all applicable columns to numeric
-    df = df.apply(pd.to_numeric, errors='ignore')
+    df = df.apply(pd.to_numeric, errors="ignore")
 
     # also write to postgres
     engine = get_sqlalchemy_engine()
@@ -219,7 +154,7 @@ def post_fangraphs_projections_html_to_postgres(html_file):
     Input one of the fangraphs html files and rip the first table we find in it.
     Writes the outputs to a csv in the output folder.
     """
-    with open(html_file, "r+", encoding="utf-8") as bhtml:
+    with open(html_file, "r+", encoding="utf8") as bhtml:
 
         # read the file and get rid of the pager table
         btxt = bhtml.read()
@@ -228,10 +163,10 @@ def post_fangraphs_projections_html_to_postgres(html_file):
         if pager:
             for p in pager:
                 p.decompose()  # remove pager
-        validated_html = soup.prettify("utf-8")  # prettify for debug
+        validated_html = soup.prettify()  # prettify for debug
 
         # read_html returns ALL tables, we just want the last one.
-        all_df = pd.read_html(validated_html)
+        all_df = pd.read_html(validated_html, encoding="utf-8")
         df = all_df[-1]
 
     # get rid of na and clean column names
@@ -243,7 +178,6 @@ def post_fangraphs_projections_html_to_postgres(html_file):
     for col in df.columns:
         if "_pct" in col:
             df[col] = df[col].apply(lambda x: parse_pctg(x))
-    df.dropna(inplace=True)
     replace_names(df, "name")
 
     # create sqlalchemy engine for putting dataframe to postgres
@@ -348,7 +282,7 @@ def get_pitcherlist_top_100():
 
     # extract data frames from HTML
     all_df = pd.read_html(response.text)
-    the_list = all_df[1]
+    the_list = all_df[2]
     replace_names(the_list, "Pitcher")
     the_list = the_list.drop(["Badges", "Change"], axis=1)
 
@@ -361,7 +295,7 @@ def get_pitcherlist_top_100():
     tier_regex = re.compile("(T[\d]+)")
     the_list["Tier"] = the_list["Pitcher"].apply(lambda x: find_tier(x, tier_regex)).ffill()
     the_list["Pitcher"] = the_list["Pitcher"].apply(lambda x: tier_regex.sub("", x))
-    the_list = the_list.apply(pd.to_numeric, errors='ignore')
+    the_list = the_list.apply(pd.to_numeric, errors="ignore")
     the_list = the_list.rename(columns={"Rank": "rank", "Pitcher": "name", "Tier": "tier"})
 
     # post to postgres
@@ -416,15 +350,15 @@ def replace_chars(input_str: str):
     }
     for k, v in replacements.items():
         input_str = input_str.replace(k, v)
-    
+
     return input_str
 
 
 if __name__ == "__main__":
     get_all_fangraphs_pages()
     post_all_fangraphs_projections_to_postgres()
-    get_fangraphs_actuals()
-    get_statcast_batter_actuals()
-    get_statcast_pitcher_actuals()
-    get_statcast_batter_data()
     get_pitcherlist_top_100()
+    # get_fangraphs_actuals()
+    # get_statcast_batter_actuals()
+    # get_statcast_pitcher_actuals()
+    # get_statcast_batter_data()

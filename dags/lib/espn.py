@@ -5,15 +5,11 @@ Get data from the ESPN league and insert into Postgres.
 """
 
 import requests
-import csv
 import datetime
-import subprocess
 import json
 import os
-import sqlalchemy
 import psycopg2
 from psycopg2.extras import execute_values
-from bs4 import BeautifulSoup
 
 # connection information for the database
 POSTGRES_USER = os.environ.get("POSTGRES_USER")
@@ -30,7 +26,7 @@ ESPN_S2 = os.environ["ESPN_S2"]
 # This will rip the roster information from ESPN and save it to a local CSV file.
 ESPN_ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
 ESPN_PLAYERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?scoringPeriodId=0&view=kona_player_info"
-SEASON_ID = 2021
+SEASON_ID = 2022
 ESPN_LEAGUE_ID = 15594
 
 
@@ -463,43 +459,6 @@ def load_players_to_postgres():
     conn.close()
 
 
-def load_watchlists_to_postgres():
-    """
-    Loads each team's watchlist into postgres.
-    """
-    conn = get_postgres_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        DROP TABLE IF EXISTS fantasy.watchlists;
-        CREATE TABLE fantasy.watchlists (
-            id serial primary key,
-            team_espn_id integer,
-            player_espn_id integer
-        );
-        GRANT SELECT ON fantasy.watchlists TO PUBLIC;
-        """
-    )
-
-    # load the member data from the json output.
-    date_str = str(datetime.date.today())
-    with open(output_path("rosters" + date_str + ".json")) as json_file:
-        roster_data = json.load(json_file)
-        team_data = roster_data["teams"]
-
-    # loop through the teams and load watchlists for each
-    for team in team_data:
-        for entry in team.get("watchList", []):
-            roster_insert = tuple([team.get("id"), entry])
-
-            # execute the insert
-            cur.execute("INSERT INTO fantasy.watchlists VALUES (DEFAULT, %s, %s)", roster_insert)
-
-    # commit changes and close the connection
-    conn.commit()
-    conn.close()
-
-
 def get_player_eligibile_slots(player):
     """
     Translates the "eligibleSlots" data from ESPN into readable player eligibility.
@@ -592,5 +551,4 @@ if __name__ == "__main__":
     load_league_members_to_postgres()
     load_teams_to_postgres()
     load_rosters_to_postgres()
-    load_watchlists_to_postgres()
     insert_etl_timestamp()
