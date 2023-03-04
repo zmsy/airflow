@@ -138,7 +138,7 @@ def parse_pctg(value):
     """
     Parse the text value for percentages out into a float.
     """
-    return float(value.split()[0]) / 100
+    return float(value.replace("%", "")) / 100
 
 
 def get_all_fangraphs_pages():
@@ -197,15 +197,15 @@ def post_all_fangraphs_projections_to_postgres():
     post_fangraphs_projections_html_to_postgres(
         output_path("batters_projections_depth_charts.html")
     )
-    post_fangraphs_projections_html_to_postgres(
-        output_path("batters_projections_depth_charts_ros.html")
-    )
+    # post_fangraphs_projections_html_to_postgres(
+    #     output_path("batters_projections_depth_charts_ros.html")
+    # )
     post_fangraphs_projections_html_to_postgres(
         output_path("pitchers_projections_depth_charts.html")
     )
-    post_fangraphs_projections_html_to_postgres(
-        output_path("pitchers_projections_depth_charts_ros.html")
-    )
+    # post_fangraphs_projections_html_to_postgres(
+    #     output_path("pitchers_projections_depth_charts_ros.html")
+    # )
 
 
 def get_statcast_batter_actuals():
@@ -246,7 +246,7 @@ def get_statcast_batter_data():
     response = requests.get(url)
     soup = BeautifulSoup(response.text, features="lxml")
     scripts = soup.find_all("script")
-    data_script = scripts[7]  # hardcoding this for now, may need updates
+    data_script = scripts[3]  # hardcoding this for now, may need updates
 
     # decode the script. this loads the js and keys into the 'leaderboard_data' variable.
     json_text = extract_json_objects(data_script.string, "leaderboard_data = ")
@@ -282,7 +282,7 @@ def get_pitcherlist_top_100():
 
     # extract data frames from HTML
     all_df = pd.read_html(response.text)
-    the_list = all_df[2]
+    the_list = all_df[-1]
     replace_names(the_list, "Pitcher")
     the_list = the_list.drop(["Badges", "Change"], axis=1)
 
@@ -355,7 +355,7 @@ def replace_chars(input_str: str):
 
 
 if __name__ == "__main__":
-    get_all_fangraphs_pages()
+    # get_all_fangraphs_pages()
     post_all_fangraphs_projections_to_postgres()
     get_pitcherlist_top_100()
     # get_fangraphs_actuals()
