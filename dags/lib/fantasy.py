@@ -54,39 +54,6 @@ def get_sqlalchemy_engine():
     )
 
 
-def parse_array_from_fangraphs_html(input_html, out_file_name):
-    """
-    Take a HTML stats page from fangraphs and parse it out to a CSV file.
-    """
-    # parse input
-    soup = BeautifulSoup(input_html, "lxml")
-    table = soup.find("table", {"class": "rgMasterTable"})
-
-    # get headers
-    headers_html = table.find("thead").find_all("th")
-    headers = []
-    for header in headers_html:
-        headers.append(header.text)
-
-    # get rows
-    rows = []
-    rows_html = table.find("tbody").find_all("tr")
-    for row in rows_html:
-        row_data = []
-        cells = row.find_all("td")
-        if len(cells) > 1:
-            for cell in cells:
-                row_data.append(cell.text)
-            rows.append(row_data)
-
-    # write to CSV file
-    out_file_path = output_path(out_file_name)
-    with open(out_file_path, "w") as out_file:
-        writer = csv.writer(out_file)
-        writer.writerow(headers)
-        writer.writerows(rows)
-
-
 def pandas_parse_actuals(input_html, out_file_name):
     """
     Version of the above function that instead parses using Pandas.
@@ -138,7 +105,7 @@ def parse_pctg(value):
     """
     Parse the text value for percentages out into a float.
     """
-    return float(value.split()[0]) / 100
+    return float(value.replace("%", "")) / 100
 
 
 def get_all_fangraphs_pages():
@@ -146,7 +113,88 @@ def get_all_fangraphs_pages():
     Returns all of the 4 different Fangraphs Depth Charts projections
     from beginning of season and RoS.
     """
-    subprocess.check_call("${AIRFLOW_HOME}/dags/lib/get_fangraphs.sh", shell=True)
+    get_fangraphs_data(
+        "https://www.fangraphs.com/projections?pos=all&stats=bat&type=fangraphsdc",
+        output_path("batters_projections_depth_charts.json"),
+    )
+    get_fangraphs_data(
+        "https://www.fangraphs.com/projections?pos=all&stats=pit&type=fangraphsdc",
+        output_path("pitchers_projections_depth_charts.json"),
+    )
+
+
+def get_fangraphs_data(url: str, out_file: str) -> None:
+    """
+    Retrieve the player data from a given fangraphs page and save the
+    JSON to the file specified.
+    """
+    print(f"get_fangraphs_data {url} -> {out_file}")
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, features="lxml")
+
+    # values are stored as a next.js page
+    # data is stored as the result of the first query. it does not seem to matter
+    # what the page size is, all data is returned regardless.
+    next_data = soup.find("script", {"id": "__NEXT_DATA__"})
+    json_content = json.loads(next_data.text)
+    data = json_content["props"]["pageProps"]["dehydratedState"]["queries"][0]["state"]["data"]
+
+    with open(out_file, "w", newline="") as out_file:
+        json.dump(data, out_file)
+
+
+def post_fangraphs_projections_json_to_postgres(json_file: str) -> None:
+    """
+    Input one of the fangraphs html files and rip the first table we find in it.
+    Writes the outputs to a csv in the output folder.
+    """
+    with open(json_file, "r+", encoding="utf8") as jfile:
+        contents = json.load(jfile)
+        df = pd.DataFrame.from_dict(contents)
+
+    # clean up column names
+    df.columns = [replace_chars(x.lower()) for x in df.columns]
+    edit_columns(df)
+    replace_names(df, "name")
+
+    # create sqlalchemy engine for putting dataframe to postgres
+    engine = get_sqlalchemy_engine()
+    conn = engine.connect()
+    table_name = os.path.splitext(os.path.basename(json_file))[0]
+    df.to_sql(table_name, conn, schema="fantasy", if_exists="replace")
+    conn.execute("GRANT SELECT ON fantasy.{} TO PUBLIC".format(table_name))
+    conn.close()
+
+
+def edit_columns(df: pd.DataFrame) -> None:
+    """
+    Apply any necessary edits to the columns.
+    1. deletes
+    2. renames
+    """
+    # keyed by the filename
+    edits = {
+        "renames": {
+            "playername": "name",
+        },
+        "deletes": [
+            # don't need the 'name' of the team if there's abbrev aka 'BOS'/'NYY' etc
+            "shortname",
+            # actually a link to the player page
+            "name",
+            # not populated with data
+            "gb_pct",
+            "gdp",
+            "gdpruns",
+            # not sure
+            ".",
+            # useless for pitchers/hitters
+            "ibb",
+            "bs",
+        ],
+    }
+    df.drop(columns=[x for x in edits["deletes"] if x in df.columns], inplace=True)
+    df.rename(columns=edits["renames"], inplace=True)
 
 
 def post_fangraphs_projections_html_to_postgres(html_file):
@@ -155,7 +203,6 @@ def post_fangraphs_projections_html_to_postgres(html_file):
     Writes the outputs to a csv in the output folder.
     """
     with open(html_file, "r+", encoding="utf8") as bhtml:
-
         # read the file and get rid of the pager table
         btxt = bhtml.read()
         soup = BeautifulSoup(btxt, "lxml")
@@ -191,20 +238,13 @@ def post_fangraphs_projections_html_to_postgres(html_file):
 
 def post_all_fangraphs_projections_to_postgres():
     """
-    Invoke post_fangraphs_projections_html_to_postgres for each of the
-    projections that we want.
+    Invoke parser for each of the projections retrieved from fangraphs.
     """
-    post_fangraphs_projections_html_to_postgres(
-        output_path("batters_projections_depth_charts.html")
+    post_fangraphs_projections_json_to_postgres(
+        output_path("batters_projections_depth_charts.json")
     )
-    post_fangraphs_projections_html_to_postgres(
-        output_path("batters_projections_depth_charts_ros.html")
-    )
-    post_fangraphs_projections_html_to_postgres(
-        output_path("pitchers_projections_depth_charts.html")
-    )
-    post_fangraphs_projections_html_to_postgres(
-        output_path("pitchers_projections_depth_charts_ros.html")
+    post_fangraphs_projections_json_to_postgres(
+        output_path("pitchers_projections_depth_charts.json")
     )
 
 
@@ -246,7 +286,7 @@ def get_statcast_batter_data():
     response = requests.get(url)
     soup = BeautifulSoup(response.text, features="lxml")
     scripts = soup.find_all("script")
-    data_script = scripts[7]  # hardcoding this for now, may need updates
+    data_script = scripts[3]  # hardcoding this for now, may need updates
 
     # decode the script. this loads the js and keys into the 'leaderboard_data' variable.
     json_text = extract_json_objects(data_script.string, "leaderboard_data = ")
@@ -282,7 +322,7 @@ def get_pitcherlist_top_100():
 
     # extract data frames from HTML
     all_df = pd.read_html(response.text)
-    the_list = all_df[2]
+    the_list = all_df[-1]
     replace_names(the_list, "Pitcher")
     the_list = the_list.drop(["Badges", "Change"], axis=1)
 
@@ -346,7 +386,7 @@ def replace_chars(input_str: str):
         "%": "_pct",
         "-": "_",
         "+": "_plus",
-        "/": "_per",
+        "/": "_per_",
     }
     for k, v in replacements.items():
         input_str = input_str.replace(k, v)
@@ -355,9 +395,10 @@ def replace_chars(input_str: str):
 
 
 if __name__ == "__main__":
-    get_all_fangraphs_pages()
+    print()
+    # get_all_fangraphs_pages()
     post_all_fangraphs_projections_to_postgres()
-    get_pitcherlist_top_100()
+    # get_pitcherlist_top_100()
     # get_fangraphs_actuals()
     # get_statcast_batter_actuals()
     # get_statcast_pitcher_actuals()
