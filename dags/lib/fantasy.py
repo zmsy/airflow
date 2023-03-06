@@ -5,11 +5,9 @@ Retrieves, parses and inserts fantasy data into the postgres db
 for later analysis.
 """
 
-import csv
 import json
 import os
 import re
-import subprocess
 
 import pandas as pd
 import pybaseball
@@ -155,6 +153,7 @@ def post_fangraphs_projections_json_to_postgres(json_file: str) -> None:
     # clean up column names
     df.columns = [replace_chars(x.lower()) for x in df.columns]
     edit_columns(df)
+    df["espnteamid"] = df["teamid"].apply(lambda x: to_espn_team_id(x))
     replace_names(df, "name")
 
     # create sqlalchemy engine for putting dataframe to postgres
@@ -195,45 +194,6 @@ def edit_columns(df: pd.DataFrame) -> None:
     }
     df.drop(columns=[x for x in edits["deletes"] if x in df.columns], inplace=True)
     df.rename(columns=edits["renames"], inplace=True)
-
-
-def post_fangraphs_projections_html_to_postgres(html_file):
-    """
-    Input one of the fangraphs html files and rip the first table we find in it.
-    Writes the outputs to a csv in the output folder.
-    """
-    with open(html_file, "r+", encoding="utf8") as bhtml:
-        # read the file and get rid of the pager table
-        btxt = bhtml.read()
-        soup = BeautifulSoup(btxt, "lxml")
-        pager = soup.find_all("tr", attrs={"class": "rgPager"})
-        if pager:
-            for p in pager:
-                p.decompose()  # remove pager
-        validated_html = soup.prettify()  # prettify for debug
-
-        # read_html returns ALL tables, we just want the last one.
-        all_df = pd.read_html(validated_html, encoding="utf-8")
-        df = all_df[-1]
-
-    # get rid of na and clean column names
-    df.columns = [x.lower() for x in df.columns]
-    for column in df.columns:
-        if "unnamed" in column:
-            df.drop(column, axis=1, inplace=True)
-    df.columns = [x.replace("%", "_pct").replace("/", "-").lower() for x in df.columns]
-    for col in df.columns:
-        if "_pct" in col:
-            df[col] = df[col].apply(lambda x: parse_pctg(x))
-    replace_names(df, "name")
-
-    # create sqlalchemy engine for putting dataframe to postgres
-    engine = get_sqlalchemy_engine()
-    conn = engine.connect()
-    table_name = os.path.splitext(os.path.basename(html_file))[0]
-    df.to_sql(table_name, conn, schema="fantasy", if_exists="replace")
-    conn.execute("GRANT SELECT ON fantasy.{} TO PUBLIC".format(table_name))
-    conn.close()
 
 
 def post_all_fangraphs_projections_to_postgres():
@@ -394,11 +354,52 @@ def replace_chars(input_str: str):
     return input_str
 
 
+def to_espn_team_id(fangraphs_team_id: int) -> int:
+    """
+    Translate the fangraphs team id to ESPN's one for easier joining.
+    If no team, return 0 which is free agent in ESPN's system.
+    """
+    # fangraphs id -> espn id
+    ids = {
+        1: 3, # LAA
+        2: 1, # BAL
+        3: 2, # BOS
+        4: 4, # CHW
+        5: 5, # CLE
+        6: 6, # DET
+        7: 7, # KCR
+        8: 9, # MIN
+        9: 10, # NYY
+        10: 11, # OAK
+        11: 12, # SEA
+        12: 30, # TBR
+        13: 13, # TEX
+        14: 14, # TOR
+        15: 29, # ARI
+        16: 15, # ATL
+        17: 16, # CHC
+        18: 17, # CIN
+        19: 27, # COL
+        20: 28, # MIA
+        21: 18, # HOU
+        22: 19, # LAD
+        23: 8, # MIL
+        24: 20, # WSN
+        25: 21, # NYM
+        26: 22, # PHI
+        27: 23, # PIT
+        28: 24, # STL
+        29: 25, # SDP
+        30: 26, # SFG
+    }
+    return ids.get(fangraphs_team_id, 0)
+
+
 if __name__ == "__main__":
     print()
-    # get_all_fangraphs_pages()
+    get_all_fangraphs_pages()
     post_all_fangraphs_projections_to_postgres()
-    # get_pitcherlist_top_100()
+    get_pitcherlist_top_100()
     # get_fangraphs_actuals()
     # get_statcast_batter_actuals()
     # get_statcast_pitcher_actuals()

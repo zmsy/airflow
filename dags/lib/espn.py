@@ -26,7 +26,7 @@ ESPN_S2 = os.environ["ESPN_S2"]
 # This will rip the roster information from ESPN and save it to a local CSV file.
 ESPN_ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
 ESPN_PLAYERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?scoringPeriodId=0&view=kona_player_info"
-SEASON_ID = 2022
+SEASON_ID = 2023
 ESPN_LEAGUE_ID = 15594
 
 
@@ -371,9 +371,6 @@ def load_players_to_postgres():
             percentChange numeric(6, 2),
             percentOwned numeric(6, 2),
             percentStarted numeric(6, 2),
-            positionalRanking integer,
-            totalRanking integer,
-            totalRating numeric(6, 2),
             proTeamId integer,
             rosterLocked boolean,
 
@@ -425,9 +422,6 @@ def load_players_to_postgres():
                 player.get("player", {}).get("ownership", {}).get("percentChange"),
                 player.get("player", {}).get("ownership", {}).get("percentOwned"),
                 player.get("player", {}).get("ownership", {}).get("percentStarted"),
-                player.get("ratings", {}).get("0", {}).get("positionalRanking"),
-                player.get("ratings", {}).get("0", {}).get("totalRanking"),
-                player.get("ratings", {}).get("0", {}).get("totalRating"),
                 player.get("player", {}).get("proTeamId"),
                 player.get("rosterLocked"),
                 player.get("status"),
