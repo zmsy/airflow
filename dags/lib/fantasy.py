@@ -15,12 +15,8 @@ import requests
 import sqlalchemy
 from bs4 import BeautifulSoup
 
-# connection information for the database
-POSTGRES_USER = os.environ.get("POSTGRES_USER")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
-POSTGRES_IP = "192.168.0.103"
-POSTGRES_PORT = 5432
-POSTGRES_DB = "postgres"
+import db
+
 
 ACTIVE_SEASON = 2023
 
@@ -43,13 +39,13 @@ def get_sqlalchemy_engine():
     #
     return sqlalchemy.create_engine(
         "postgresql://{user}:{password}@{host}:{port}/{db}".format(
-            user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD,
-            host=POSTGRES_IP,
-            port=POSTGRES_PORT,
-            db=POSTGRES_DB,
+            user=db.POSTGRES_USER,
+            password=db.POSTGRES_PASSWORD,
+            host=db.POSTGRES_IP,
+            port=db.POSTGRES_PORT,
+            db=db.POSTGRES_DB,
         ),
-        isolation_level='AUTOCOMMIT'
+        isolation_level="AUTOCOMMIT",
     )
 
 
@@ -364,36 +360,36 @@ def to_espn_team_id(fangraphs_team_id: int) -> int:
     """
     # fangraphs id -> espn id
     ids = {
-        1: 3, # LAA
-        2: 1, # BAL
-        3: 2, # BOS
-        4: 4, # CHW
-        5: 5, # CLE
-        6: 6, # DET
-        7: 7, # KCR
-        8: 9, # MIN
-        9: 10, # NYY
-        10: 11, # OAK
-        11: 12, # SEA
-        12: 30, # TBR
-        13: 13, # TEX
-        14: 14, # TOR
-        15: 29, # ARI
-        16: 15, # ATL
-        17: 16, # CHC
-        18: 17, # CIN
-        19: 27, # COL
-        20: 28, # MIA
-        21: 18, # HOU
-        22: 19, # LAD
-        23: 8, # MIL
-        24: 20, # WSN
-        25: 21, # NYM
-        26: 22, # PHI
-        27: 23, # PIT
-        28: 24, # STL
-        29: 25, # SDP
-        30: 26, # SFG
+        1: 3,  # LAA
+        2: 1,  # BAL
+        3: 2,  # BOS
+        4: 4,  # CHW
+        5: 5,  # CLE
+        6: 6,  # DET
+        7: 7,  # KCR
+        8: 9,  # MIN
+        9: 10,  # NYY
+        10: 11,  # OAK
+        11: 12,  # SEA
+        12: 30,  # TBR
+        13: 13,  # TEX
+        14: 14,  # TOR
+        15: 29,  # ARI
+        16: 15,  # ATL
+        17: 16,  # CHC
+        18: 17,  # CIN
+        19: 27,  # COL
+        20: 28,  # MIA
+        21: 18,  # HOU
+        22: 19,  # LAD
+        23: 8,  # MIL
+        24: 20,  # WSN
+        25: 21,  # NYM
+        26: 22,  # PHI
+        27: 23,  # PIT
+        28: 24,  # STL
+        29: 25,  # SDP
+        30: 26,  # SFG
     }
     return ids.get(fangraphs_team_id, 0)
 
