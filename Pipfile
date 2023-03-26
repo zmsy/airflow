@@ -7,14 +7,13 @@ verify_ssl = true
 black = "*"
 
 [packages]
-apache-airflow = "*"
 beautifulsoup4 = "*"
 numpy = "*"
 pandas = "*"
 psycopg2-binary = "*"
 requests = "*"
 pybaseball = "*"
-SQLAlchemy = "==1.4"
+SQLAlchemy = "*"
 
 [requires]
 python_version = "3.10"

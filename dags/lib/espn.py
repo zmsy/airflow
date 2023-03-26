@@ -11,12 +11,7 @@ import os
 import psycopg2
 from psycopg2.extras import execute_values
 
-# connection information for the database
-POSTGRES_USER = os.environ.get("POSTGRES_USER")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
-POSTGRES_IP = "192.168.0.118"
-POSTGRES_PORT = 5432
-POSTGRES_DB = "postgres"
+import db
 
 # requests + espn auth data
 ESPN_SWID = os.environ["ESPN_SWID"]
@@ -42,11 +37,11 @@ def get_postgres_connection():
     Get and return a connection to the postgres database.
     """
     conn = psycopg2.connect(
-        user=POSTGRES_USER,
-        password=POSTGRES_PASSWORD,
-        host=POSTGRES_IP,
-        port=POSTGRES_PORT,
-        database=POSTGRES_DB,
+        user=db.POSTGRES_USER,
+        password=db.POSTGRES_PASSWORD,
+        host=db.POSTGRES_IP,
+        port=db.POSTGRES_PORT,
+        database=db.POSTGRES_DB,
     )
     return conn
 
@@ -79,10 +74,7 @@ def get_espn_league_data():
     - draft data.
     """
     league_data_raw = requests.get(
-        ESPN_ROSTERS_URL.format(
-            season=SEASON_ID,
-            league_id=ESPN_LEAGUE_ID
-        ),
+        ESPN_ROSTERS_URL.format(season=SEASON_ID, league_id=ESPN_LEAGUE_ID),
         cookies=get_espn_cookies(),
         headers=get_espn_headers(),
     )
@@ -114,10 +106,7 @@ def get_espn_player_data():
 
     headers = {"X-Fantasy-Filter": json.dumps(x_fantasy_filter)}
     data = requests.get(
-        ESPN_PLAYERS_URL.format(
-            season=SEASON_ID,
-            league_id=ESPN_LEAGUE_ID
-        ),
+        ESPN_PLAYERS_URL.format(season=SEASON_ID, league_id=ESPN_LEAGUE_ID),
         headers=headers,
         cookies=get_espn_cookies(),
     )

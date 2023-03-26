@@ -15,14 +15,10 @@ import requests
 import sqlalchemy
 from bs4 import BeautifulSoup
 
-# connection information for the database
-POSTGRES_USER = os.environ.get("POSTGRES_USER")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
-POSTGRES_IP = "192.168.0.118"
-POSTGRES_PORT = 5432
-POSTGRES_DB = "postgres"
+import db
 
-ACTIVE_SEASON = 2022
+
+ACTIVE_SEASON = 2023
 
 # espn names are canon for this analysis - use those!
 NAME_REPLACEMENTS = {}
@@ -43,12 +39,13 @@ def get_sqlalchemy_engine():
     #
     return sqlalchemy.create_engine(
         "postgresql://{user}:{password}@{host}:{port}/{db}".format(
-            user=POSTGRES_USER,
-            password=POSTGRES_PASSWORD,
-            host=POSTGRES_IP,
-            port=POSTGRES_PORT,
-            db=POSTGRES_DB,
-        )
+            user=db.POSTGRES_USER,
+            password=db.POSTGRES_PASSWORD,
+            host=db.POSTGRES_IP,
+            port=db.POSTGRES_PORT,
+            db=db.POSTGRES_DB,
+        ),
+        isolation_level="AUTOCOMMIT",
     )
 
 
@@ -74,7 +71,7 @@ def pandas_parse_actuals(input_html, out_file_name):
     conn = engine.connect()
     table_name = os.path.splitext(out_file_name)[0]
     df.to_sql(table_name, conn, schema="fantasy", if_exists="replace")
-    conn.execute("GRANT SELECT ON fantasy.{} TO PUBLIC".format(table_name))
+    conn.execute(sqlalchemy.text(f"GRANT SELECT ON fantasy.{table_name} TO PUBLIC"))
     conn.close()
 
 
@@ -161,7 +158,7 @@ def post_fangraphs_projections_json_to_postgres(json_file: str) -> None:
     conn = engine.connect()
     table_name = os.path.splitext(os.path.basename(json_file))[0]
     df.to_sql(table_name, conn, schema="fantasy", if_exists="replace")
-    conn.execute("GRANT SELECT ON fantasy.{} TO PUBLIC".format(table_name))
+    conn.execute(sqlalchemy.text(f"GRANT SELECT ON fantasy.{table_name} TO PUBLIC"))
     conn.close()
 
 
@@ -218,7 +215,7 @@ def get_statcast_batter_actuals():
     replace_names(statcast_results, "Name")
     statcast_results.columns = [replace_chars(x.lower()) for x in statcast_results.columns]
     statcast_results.to_sql("batters_statcast_actuals", conn, schema="fantasy", if_exists="replace")
-    conn.execute("grant select on fantasy.batters_statcast_actuals to public")
+    conn.execute(sqlalchemy.text("grant select on fantasy.batters_statcast_actuals to public"))
 
 
 def get_statcast_pitcher_actuals():
@@ -233,7 +230,8 @@ def get_statcast_pitcher_actuals():
     statcast_results.to_sql(
         "pitchers_statcast_actuals", conn, schema="fantasy", if_exists="replace"
     )
-    conn.execute("grant select on fantasy.pitchers_statcast_actuals to public")
+    conn.execute(sqlalchemy.text("grant select on fantasy.pitchers_statcast_actuals to public"))
+    conn.close()
 
 
 def get_statcast_batter_data():
@@ -261,7 +259,8 @@ def get_statcast_batter_data():
     engine = get_sqlalchemy_engine()
     conn = engine.connect()
     df.to_sql("batters_statcast", conn, schema="fantasy", if_exists="replace")
-    conn.execute("grant select on fantasy.batters_statcast to public")
+    conn.execute(sqlalchemy.text("grant select on fantasy.batters_statcast to public"))
+    conn.close()
 
 
 def get_pitcherlist_top_100():
@@ -302,7 +301,7 @@ def get_pitcherlist_top_100():
     engine = get_sqlalchemy_engine()
     conn = engine.connect()
     the_list.to_sql("pitchers_pitcherlist_100", conn, schema="fantasy", if_exists="replace")
-    conn.execute("grant select on fantasy.pitchers_pitcherlist_100 to public")
+    conn.execute(sqlalchemy.text("grant select on fantasy.pitchers_pitcherlist_100 to public"))
 
 
 def extract_json_objects(text, start_str="{", decoder=json.JSONDecoder()):
@@ -361,43 +360,43 @@ def to_espn_team_id(fangraphs_team_id: int) -> int:
     """
     # fangraphs id -> espn id
     ids = {
-        1: 3, # LAA
-        2: 1, # BAL
-        3: 2, # BOS
-        4: 4, # CHW
-        5: 5, # CLE
-        6: 6, # DET
-        7: 7, # KCR
-        8: 9, # MIN
-        9: 10, # NYY
-        10: 11, # OAK
-        11: 12, # SEA
-        12: 30, # TBR
-        13: 13, # TEX
-        14: 14, # TOR
-        15: 29, # ARI
-        16: 15, # ATL
-        17: 16, # CHC
-        18: 17, # CIN
-        19: 27, # COL
-        20: 28, # MIA
-        21: 18, # HOU
-        22: 19, # LAD
-        23: 8, # MIL
-        24: 20, # WSN
-        25: 21, # NYM
-        26: 22, # PHI
-        27: 23, # PIT
-        28: 24, # STL
-        29: 25, # SDP
-        30: 26, # SFG
+        1: 3,  # LAA
+        2: 1,  # BAL
+        3: 2,  # BOS
+        4: 4,  # CHW
+        5: 5,  # CLE
+        6: 6,  # DET
+        7: 7,  # KCR
+        8: 9,  # MIN
+        9: 10,  # NYY
+        10: 11,  # OAK
+        11: 12,  # SEA
+        12: 30,  # TBR
+        13: 13,  # TEX
+        14: 14,  # TOR
+        15: 29,  # ARI
+        16: 15,  # ATL
+        17: 16,  # CHC
+        18: 17,  # CIN
+        19: 27,  # COL
+        20: 28,  # MIA
+        21: 18,  # HOU
+        22: 19,  # LAD
+        23: 8,  # MIL
+        24: 20,  # WSN
+        25: 21,  # NYM
+        26: 22,  # PHI
+        27: 23,  # PIT
+        28: 24,  # STL
+        29: 25,  # SDP
+        30: 26,  # SFG
     }
     return ids.get(fangraphs_team_id, 0)
 
 
 if __name__ == "__main__":
     print()
-    get_all_fangraphs_pages()
+    # get_all_fangraphs_pages()
     post_all_fangraphs_projections_to_postgres()
     get_pitcherlist_top_100()
     # get_fangraphs_actuals()

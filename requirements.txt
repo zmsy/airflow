@@ -1,8 +1,0 @@
-apache_airflow
-beautifulsoup4
-numpy
-pandas
-psycopg2-binary
-requests
-SQLAlchemy
-pybaseball
