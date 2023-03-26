@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 # connection information for the database
 POSTGRES_USER = os.environ.get("POSTGRES_USER")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
-POSTGRES_IP = "192.168.0.118"
+POSTGRES_IP = "192.168.0.103"
 POSTGRES_PORT = 5432
 POSTGRES_DB = "postgres"
 
@@ -397,7 +397,7 @@ def to_espn_team_id(fangraphs_team_id: int) -> int:
 
 if __name__ == "__main__":
     print()
-    get_all_fangraphs_pages()
+    # get_all_fangraphs_pages()
     post_all_fangraphs_projections_to_postgres()
     get_pitcherlist_top_100()
     # get_fangraphs_actuals()
