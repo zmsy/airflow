@@ -22,7 +22,7 @@ POSTGRES_IP = "192.168.0.103"
 POSTGRES_PORT = 5432
 POSTGRES_DB = "postgres"
 
-ACTIVE_SEASON = 2022
+ACTIVE_SEASON = 2023
 
 # espn names are canon for this analysis - use those!
 NAME_REPLACEMENTS = {}
@@ -235,6 +235,7 @@ def get_statcast_pitcher_actuals():
         "pitchers_statcast_actuals", conn, schema="fantasy", if_exists="replace"
     )
     conn.execute(sqlalchemy.text("grant select on fantasy.pitchers_statcast_actuals to public"))
+    conn.close()
 
 
 def get_statcast_batter_data():
@@ -263,6 +264,7 @@ def get_statcast_batter_data():
     conn = engine.connect()
     df.to_sql("batters_statcast", conn, schema="fantasy", if_exists="replace")
     conn.execute(sqlalchemy.text("grant select on fantasy.batters_statcast to public"))
+    conn.close()
 
 
 def get_pitcherlist_top_100():
