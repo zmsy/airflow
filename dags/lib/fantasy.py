@@ -74,7 +74,7 @@ def pandas_parse_actuals(input_html, out_file_name):
     conn = engine.connect()
     table_name = os.path.splitext(out_file_name)[0]
     df.to_sql(table_name, conn, schema="fantasy", if_exists="replace")
-    conn.execute("GRANT SELECT ON fantasy.{} TO PUBLIC".format(table_name))
+    conn.execute(sqlalchemy.text(f"GRANT SELECT ON fantasy.{table_name} TO PUBLIC"))
     conn.close()
 
 
@@ -161,7 +161,7 @@ def post_fangraphs_projections_json_to_postgres(json_file: str) -> None:
     conn = engine.connect()
     table_name = os.path.splitext(os.path.basename(json_file))[0]
     df.to_sql(table_name, conn, schema="fantasy", if_exists="replace")
-    conn.execute("GRANT SELECT ON fantasy.{} TO PUBLIC".format(table_name))
+    conn.execute(sqlalchemy.text(f"GRANT SELECT ON fantasy.{table_name} TO PUBLIC"))
     conn.close()
 
 
@@ -218,7 +218,7 @@ def get_statcast_batter_actuals():
     replace_names(statcast_results, "Name")
     statcast_results.columns = [replace_chars(x.lower()) for x in statcast_results.columns]
     statcast_results.to_sql("batters_statcast_actuals", conn, schema="fantasy", if_exists="replace")
-    conn.execute("grant select on fantasy.batters_statcast_actuals to public")
+    conn.execute(sqlalchemy.text("grant select on fantasy.batters_statcast_actuals to public"))
 
 
 def get_statcast_pitcher_actuals():
@@ -233,7 +233,7 @@ def get_statcast_pitcher_actuals():
     statcast_results.to_sql(
         "pitchers_statcast_actuals", conn, schema="fantasy", if_exists="replace"
     )
-    conn.execute("grant select on fantasy.pitchers_statcast_actuals to public")
+    conn.execute(sqlalchemy.text("grant select on fantasy.pitchers_statcast_actuals to public"))
 
 
 def get_statcast_batter_data():
@@ -261,7 +261,7 @@ def get_statcast_batter_data():
     engine = get_sqlalchemy_engine()
     conn = engine.connect()
     df.to_sql("batters_statcast", conn, schema="fantasy", if_exists="replace")
-    conn.execute("grant select on fantasy.batters_statcast to public")
+    conn.execute(sqlalchemy.text("grant select on fantasy.batters_statcast to public"))
 
 
 def get_pitcherlist_top_100():
@@ -302,7 +302,7 @@ def get_pitcherlist_top_100():
     engine = get_sqlalchemy_engine()
     conn = engine.connect()
     the_list.to_sql("pitchers_pitcherlist_100", conn, schema="fantasy", if_exists="replace")
-    conn.execute("grant select on fantasy.pitchers_pitcherlist_100 to public")
+    conn.execute(sqlalchemy.text("grant select on fantasy.pitchers_pitcherlist_100 to public"))
 
 
 def extract_json_objects(text, start_str="{", decoder=json.JSONDecoder()):
