@@ -48,7 +48,8 @@ def get_sqlalchemy_engine():
             host=POSTGRES_IP,
             port=POSTGRES_PORT,
             db=POSTGRES_DB,
-        )
+        ),
+        isolation_level='AUTOCOMMIT'
     )
 
 
