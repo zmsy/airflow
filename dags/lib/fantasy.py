@@ -16,19 +16,13 @@ import sqlalchemy
 from bs4 import BeautifulSoup
 
 import db
+from util import output_path
 
 
 ACTIVE_SEASON = 2023
 
 # espn names are canon for this analysis - use those!
 NAME_REPLACEMENTS = {}
-
-
-def output_path(file_name: str) -> str:
-    """
-    Retrieves the global output folder and any files in it.
-    """
-    return os.path.join(os.environ.get("AIRFLOW_HOME"), "output", file_name)
 
 
 def get_sqlalchemy_engine():
@@ -131,8 +125,12 @@ def get_fangraphs_data(url: str, out_file: str) -> None:
     # data is stored as the result of the first query. it does not seem to matter
     # what the page size is, all data is returned regardless.
     next_data = soup.find("script", {"id": "__NEXT_DATA__"})
+    if next_data is None:
+        raise Exception("Could not find __NEXT_DATA__ node")
     json_content = json.loads(next_data.text)
-    data = json_content["props"]["pageProps"]["dehydratedState"]["queries"][0]["state"]["data"]
+    data = json_content["props"]["pageProps"]["dehydratedState"]["queries"][0]["state"][
+        "data"
+    ]
 
     with open(out_file, "w", newline="") as out_file:
         json.dump(data, out_file)
@@ -213,9 +211,15 @@ def get_statcast_batter_actuals():
     conn = engine.connect()
     statcast_results = pybaseball.batting_stats_bref(season=ACTIVE_SEASON)
     replace_names(statcast_results, "Name")
-    statcast_results.columns = [replace_chars(x.lower()) for x in statcast_results.columns]
-    statcast_results.to_sql("batters_statcast_actuals", conn, schema="fantasy", if_exists="replace")
-    conn.execute(sqlalchemy.text("grant select on fantasy.batters_statcast_actuals to public"))
+    statcast_results.columns = [
+        replace_chars(x.lower()) for x in statcast_results.columns
+    ]
+    statcast_results.to_sql(
+        "batters_statcast_actuals", conn, schema="fantasy", if_exists="replace"
+    )
+    conn.execute(
+        sqlalchemy.text("grant select on fantasy.batters_statcast_actuals to public")
+    )
 
 
 def get_statcast_pitcher_actuals():
@@ -226,11 +230,15 @@ def get_statcast_pitcher_actuals():
     conn = engine.connect()
     statcast_results = pybaseball.pitching_stats_bref(season=ACTIVE_SEASON)
     replace_names(statcast_results, "Name")
-    statcast_results.columns = [replace_chars(x.lower()) for x in statcast_results.columns]
+    statcast_results.columns = [
+        replace_chars(x.lower()) for x in statcast_results.columns
+    ]
     statcast_results.to_sql(
         "pitchers_statcast_actuals", conn, schema="fantasy", if_exists="replace"
     )
-    conn.execute(sqlalchemy.text("grant select on fantasy.pitchers_statcast_actuals to public"))
+    conn.execute(
+        sqlalchemy.text("grant select on fantasy.pitchers_statcast_actuals to public")
+    )
     conn.close()
 
 
@@ -292,16 +300,24 @@ def get_pitcherlist_top_100():
         return None
 
     tier_regex = re.compile("(T[\d]+)")
-    the_list["Tier"] = the_list["Pitcher"].apply(lambda x: find_tier(x, tier_regex)).ffill()
+    the_list["Tier"] = (
+        the_list["Pitcher"].apply(lambda x: find_tier(x, tier_regex)).ffill()
+    )
     the_list["Pitcher"] = the_list["Pitcher"].apply(lambda x: tier_regex.sub("", x))
     the_list = the_list.apply(pd.to_numeric, errors="ignore")
-    the_list = the_list.rename(columns={"Rank": "rank", "Pitcher": "name", "Tier": "tier"})
+    the_list = the_list.rename(
+        columns={"Rank": "rank", "Pitcher": "name", "Tier": "tier"}
+    )
 
     # post to postgres
     engine = get_sqlalchemy_engine()
     conn = engine.connect()
-    the_list.to_sql("pitchers_pitcherlist_100", conn, schema="fantasy", if_exists="replace")
-    conn.execute(sqlalchemy.text("grant select on fantasy.pitchers_pitcherlist_100 to public"))
+    the_list.to_sql(
+        "pitchers_pitcherlist_100", conn, schema="fantasy", if_exists="replace"
+    )
+    conn.execute(
+        sqlalchemy.text("grant select on fantasy.pitchers_pitcherlist_100 to public")
+    )
 
 
 def extract_json_objects(text, start_str="{", decoder=json.JSONDecoder()):
@@ -396,7 +412,7 @@ def to_espn_team_id(fangraphs_team_id: int) -> int:
 
 if __name__ == "__main__":
     print()
-    # get_all_fangraphs_pages()
+    get_all_fangraphs_pages()
     post_all_fangraphs_projections_to_postgres()
     get_pitcherlist_top_100()
     # get_fangraphs_actuals()

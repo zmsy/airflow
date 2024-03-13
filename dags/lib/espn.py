@@ -12,6 +12,8 @@ import psycopg2
 from psycopg2.extras import execute_values
 
 import db
+from const import ACTIVE_SEASON
+from util import output_path
 
 # requests + espn auth data
 ESPN_SWID = os.environ["ESPN_SWID"]
@@ -21,15 +23,7 @@ ESPN_S2 = os.environ["ESPN_S2"]
 # This will rip the roster information from ESPN and save it to a local CSV file.
 ESPN_ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
 ESPN_PLAYERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?scoringPeriodId=0&view=kona_player_info"
-SEASON_ID = 2023
 ESPN_LEAGUE_ID = 15594
-
-
-def output_path(file_name):
-    """
-    Retrieves the global output folder and any files in it.
-    """
-    return os.path.join(os.environ.get("AIRFLOW_HOME"), "output", file_name)
 
 
 def get_postgres_connection():
@@ -74,7 +68,7 @@ def get_espn_league_data():
     - draft data.
     """
     league_data_raw = requests.get(
-        ESPN_ROSTERS_URL.format(season=SEASON_ID, league_id=ESPN_LEAGUE_ID),
+        ESPN_ROSTERS_URL.format(season=ACTIVE_SEASON, league_id=ESPN_LEAGUE_ID),
         cookies=get_espn_cookies(),
         headers=get_espn_headers(),
     )
@@ -92,11 +86,17 @@ def get_espn_player_data():
     """
     x_fantasy_filter = {
         "players": {
-            "filterSlotIds": {"value": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 19]},
+            "filterSlotIds": {
+                "value": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 19]
+            },
             "limit": 2500,
             "offset": 0,
             "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
-            "sortDraftRanks": {"sortPriority": 100, "sortAsc": True, "value": "STANDARD"},
+            "sortDraftRanks": {
+                "sortPriority": 100,
+                "sortAsc": True,
+                "value": "STANDARD",
+            },
             "filterStatsForTopScoringPeriodIds": {
                 "value": 1,
                 "additionalValue": [],
@@ -106,7 +106,7 @@ def get_espn_player_data():
 
     headers = {"X-Fantasy-Filter": json.dumps(x_fantasy_filter)}
     data = requests.get(
-        ESPN_PLAYERS_URL.format(season=SEASON_ID, league_id=ESPN_LEAGUE_ID),
+        ESPN_PLAYERS_URL.format(season=ACTIVE_SEASON, league_id=ESPN_LEAGUE_ID),
         headers=headers,
         cookies=get_espn_cookies(),
     )
@@ -161,7 +161,8 @@ def load_league_members_to_postgres():
         )
 
         cur.execute(
-            "INSERT INTO fantasy.members VALUES (DEFAULT, %s, %s, %s, %s, %s, %s)", member_insert
+            "INSERT INTO fantasy.members VALUES (DEFAULT, %s, %s, %s, %s, %s, %s)",
+            member_insert,
         )
 
     # commit changes and close the connection
@@ -225,7 +226,7 @@ def load_teams_to_postgres():
                 team.get("logoType"),
                 team.get("location"),
                 team.get("nickname"),
-                " ".join([team.get("location"), team.get("nickname")]),
+                team.get("name"),
                 int(team.get("playoffSeed", 0)),
                 team.get("primaryOwner"),
                 float(team.get("record", {}).get("overall", {}).get("gamesBack", 0.0)),
@@ -301,7 +302,9 @@ def load_rosters_to_postgres():
                     entry.get("acquisitionType"),
                     entry.get("injuryStatus"),
                     entry.get("playerId"),
-                    entry.get("playerPoolEntry", {}).get("player", {}).get("defaultPositionId"),
+                    entry.get("playerPoolEntry", {})
+                    .get("player", {})
+                    .get("defaultPositionId"),
                     entry.get("playerPoolEntry", {}).get("player", {}).get("active"),
                     entry.get("playerPoolEntry", {}).get("player", {}).get("droppable"),
                     entry.get("playerPoolEntry", {}).get("player", {}).get("firstName"),
@@ -356,7 +359,9 @@ def load_players_to_postgres():
             lastName varchar(64),
 
             averageDraftPosition numeric(6, 2),
+            averageDraftPositionPercentChange numeric(6, 2),
             auctionValueAverage numeric(6, 2),
+            auctionValueAverageChange numeric(6, 2),
             percentChange numeric(6, 2),
             percentOwned numeric(6, 2),
             percentStarted numeric(6, 2),
@@ -381,7 +386,7 @@ def load_players_to_postgres():
     # loop through and insert each member into the table
     players_insert = []
     for player in players:
-        player_insert = tuple(
+        player_insert = tuple(  # type: ignore
             [
                 player.get("id"),
                 player.get("onTeamId"),
@@ -406,8 +411,18 @@ def load_players_to_postgres():
                 player.get("player", {}).get("injuryStatus"),
                 player.get("player", {}).get("jersey"),
                 player.get("player", {}).get("lastName"),
-                player.get("player", {}).get("ownership", {}).get("averageDraftPosition"),
-                player.get("player", {}).get("ownership", {}).get("auctionValueAverage"),
+                player.get("player", {})
+                .get("ownership", {})
+                .get("averageDraftPosition"),
+                player.get("player", {})
+                .get("ownership", {})
+                .get("averageDraftPositionPercentChange"),
+                player.get("player", {})
+                .get("ownership", {})
+                .get("auctionValueAverage"),
+                player.get("player", {})
+                .get("ownership", {})
+                .get("auctionValueAverageChange"),
                 player.get("player", {}).get("ownership", {}).get("percentChange"),
                 player.get("player", {}).get("ownership", {}).get("percentOwned"),
                 player.get("player", {}).get("ownership", {}).get("percentStarted"),
@@ -415,7 +430,7 @@ def load_players_to_postgres():
                 player.get("rosterLocked"),
                 player.get("status"),
                 player.get("tradeLocked"),
-                "|".join(get_player_eligibile_slots(player)),
+                "|".join(get_player_eligibile_slots(player)),  # type: ignore
                 "|".join(get_player_position_eligibility(player)),
             ]
         )
@@ -425,12 +440,33 @@ def load_players_to_postgres():
         cur,
         """
         INSERT INTO fantasy.players (
-        espn_id, onTeamId, active, defaultPositionId,
-        auctionValue, draftRank, draftRankType, droppable, firstName,
-        fullName, injured, injuryStatus, jersey, lastName,
-        averageDraftPosition, auctionValueAverage, percentChange,
-        percentOwned, percentStarted,
-        proTeamId, rosterLocked, status, tradeLocked, eligibility, position
+            espn_id,
+            onTeamId,
+            active,
+            defaultPositionId,
+            auctionValue,
+            draftRank,
+            draftRankType,
+            droppable,
+            firstName,
+            fullName,
+            injured,
+            injuryStatus,
+            jersey,
+            lastName,
+            averageDraftPosition,
+            averageDraftPositionPercentChange,
+            auctionValueAverage,
+            auctionValueAverageChange,
+            percentChange,
+            percentOwned,
+            percentStarted,
+            proTeamId,
+            rosterLocked,
+            status,
+            tradeLocked,
+            eligibility,
+            position
         )
         VALUES %s
         """,
@@ -504,9 +540,9 @@ def get_player_position_eligibility(player):
 
 
 if __name__ == "__main__":
-    get_espn_league_data()
-    get_espn_player_data()
-    load_players_to_postgres()
+    # get_espn_league_data()
+    # get_espn_player_data()
+    # load_players_to_postgres()
     load_league_members_to_postgres()
     load_teams_to_postgres()
     load_rosters_to_postgres()

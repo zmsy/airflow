@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Python: ESPN",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/dags/lib/espn.py",
             "console": "integratedTerminal",
@@ -14,7 +14,7 @@
         },
         {
             "name": "Python: Fangraphs",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/dags/lib/fantasy.py",
             "console": "integratedTerminal",
