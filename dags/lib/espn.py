@@ -540,9 +540,9 @@ def get_player_position_eligibility(player):
 
 
 if __name__ == "__main__":
-    # get_espn_league_data()
-    # get_espn_player_data()
-    # load_players_to_postgres()
+    get_espn_league_data()
+    get_espn_player_data()
+    load_players_to_postgres()
     load_league_members_to_postgres()
     load_teams_to_postgres()
     load_rosters_to_postgres()

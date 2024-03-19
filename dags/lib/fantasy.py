@@ -203,6 +203,29 @@ def post_all_fangraphs_projections_to_postgres():
     )
 
 
+def get_player_id_map():
+    """
+    Download the playeridmap from smartfantasybaseball.com and port it into
+    postgres.
+    https://www.smartfantasybaseball.com/2020/12/everything-you-need-to-know-about-the-player-id-map/#WhatVersions
+    """
+    player_id_map_url = "https://docs.google.com/spreadsheets/d/1JgczhD5VDQ1EiXqVG-blttZcVwbZd5_Ne_mefUGwJnk/pubhtml?gid=0&single=true"
+    data = pd.read_html(player_id_map_url)  # type: ignore
+    df = data[0]
+    # use first row as columns
+    cols = df.iloc[0]
+    # use first row as columns
+    df.columns = [(str(x) or "").lower() for x in cols]
+    df.drop(df.index[0])
+
+    # only important columns and no nans
+    df = df[["playername", "idfangraphs", "espnid"]].dropna()
+
+    engine = get_sqlalchemy_engine()
+    conn = engine.connect()
+    df.to_sql("player_id_map", conn, schema="fantasy", if_exists="replace")
+
+
 def get_statcast_batter_actuals():
     """
     Gets the relevant statcast metrics for batters.
@@ -412,9 +435,10 @@ def to_espn_team_id(fangraphs_team_id: int) -> int:
 
 if __name__ == "__main__":
     print()
-    get_all_fangraphs_pages()
-    post_all_fangraphs_projections_to_postgres()
-    get_pitcherlist_top_100()
+    # get_all_fangraphs_pages()
+    # post_all_fangraphs_projections_to_postgres()
+    # get_pitcherlist_top_100()
+    get_player_id_map()
     # get_fangraphs_actuals()
     # get_statcast_batter_actuals()
     # get_statcast_pitcher_actuals()
