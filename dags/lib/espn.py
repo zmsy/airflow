@@ -10,6 +10,7 @@ import json
 import os
 import psycopg2
 from psycopg2.extras import execute_values
+from typing import Dict
 
 import db
 from const import ACTIVE_SEASON
@@ -21,8 +22,8 @@ ESPN_S2 = os.environ["ESPN_S2"]
 
 # ## Get Roster Data
 # This will rip the roster information from ESPN and save it to a local CSV file.
-ESPN_ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
-ESPN_PLAYERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?scoringPeriodId=0&view=kona_player_info"
+ESPN_ROSTERS_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
+ESPN_PLAYERS_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/flb/seasons/{season}/players?scoringPeriodId=0&view=players_wl"
 ESPN_LEAGUE_ID = 15594
 
 
@@ -40,18 +41,20 @@ def get_postgres_connection():
     return conn
 
 
-def get_espn_headers():
+def get_espn_headers() -> Dict[str, str]:
     """
     Returns the correct set of headers for the ESPN request.
     """
-    return {"X-Fantasy-Platform": "kona-PROD-955c44b415a96e5c22bf97778ec0ce85dc325233"}
+    # return {"X-Fantasy-Platform": "kona-PROD-955c44b415a96e5c22bf97778ec0ce85dc325233"}
+    return {}
 
 
-def get_espn_cookies():
+def get_espn_cookies() -> Dict[str, str]:
     """
     Returns the appropriate cookies for ESPN.
     """
-    return {"swid": ESPN_SWID, "espn_s2": ESPN_S2}
+    # return {"swid": ESPN_SWID, "espn_s2": ESPN_S2}
+    return {}
 
 
 def get_espn_league_data():
@@ -84,7 +87,7 @@ def get_espn_player_data():
     """
     Use the ESPN player API in order to get information about the available players.
     """
-    x_fantasy_filter = {
+    x_fantasy_filter = {  # type: ignore
         "players": {
             "filterSlotIds": {
                 "value": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 19]
@@ -106,7 +109,7 @@ def get_espn_player_data():
 
     headers = {"X-Fantasy-Filter": json.dumps(x_fantasy_filter)}
     data = requests.get(
-        ESPN_PLAYERS_URL.format(season=ACTIVE_SEASON, league_id=ESPN_LEAGUE_ID),
+        ESPN_PLAYERS_URL.format(season=ACTIVE_SEASON),
         headers=headers,
         cookies=get_espn_cookies(),
     )
@@ -380,8 +383,7 @@ def load_players_to_postgres():
     # load the member data from the json output.
     date_str = str(datetime.date.today())
     with open(output_path("players" + date_str + ".json")) as json_file:
-        players_data = json.load(json_file)
-        players = players_data["players"]
+        players = json.load(json_file)
 
     # loop through and insert each member into the table
     players_insert = []
@@ -499,7 +501,7 @@ def get_player_eligibile_slots(player):
             (15, "RP"),  # 3
         ]
     )
-    eligible_slots = player.get("player", {}).get("eligibleSlots")
+    eligible_slots = player.get("eligibleSlots")
 
     # pass all of the eligibility values to our lookup map
     eligibility_list = [lineupSlots.get(x) for x in eligible_slots]
@@ -528,7 +530,7 @@ def get_player_position_eligibility(player):
             (15, "RP"),  # 3
         ]
     )
-    eligible_slots = player.get("player", {}).get("eligibleSlots")
+    eligible_slots = player.get("eligibleSlots")
 
     # pass all of the eligibility values to our lookup map
     eligibility_list = [actual_positions.get(x) for x in eligible_slots]
@@ -540,8 +542,8 @@ def get_player_position_eligibility(player):
 
 
 if __name__ == "__main__":
-    get_espn_league_data()
-    get_espn_player_data()
+    # get_espn_league_data()
+    # get_espn_player_data()
     load_players_to_postgres()
     load_league_members_to_postgres()
     load_teams_to_postgres()
