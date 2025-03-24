@@ -10,6 +10,7 @@ import json
 import os
 import psycopg2
 from psycopg2.extras import execute_values
+from typing import Dict
 
 import db
 from const import ACTIVE_SEASON
@@ -21,8 +22,8 @@ ESPN_S2 = os.environ["ESPN_S2"]
 
 # ## Get Roster Data
 # This will rip the roster information from ESPN and save it to a local CSV file.
-ESPN_ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
-ESPN_PLAYERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?scoringPeriodId=0&view=kona_player_info"
+ESPN_ROSTERS_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
+ESPN_PLAYERS_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/flb/seasons/{season}/players?scoringPeriodId=0&view=kona_player_info"
 ESPN_LEAGUE_ID = 15594
 
 
@@ -40,82 +41,79 @@ def get_postgres_connection():
     return conn
 
 
-def get_espn_headers():
+def get_espn_headers() -> Dict[str, str]:
     """
     Returns the correct set of headers for the ESPN request.
     """
-    return {"X-Fantasy-Platform": "kona-PROD-955c44b415a96e5c22bf97778ec0ce85dc325233"}
+    return {"X-Fantasy-Platform": "kona-PROD-e831827300039bb6b4959fb881cf960295cc32d8"}
 
 
-def get_espn_cookies():
+def get_espn_cookies() -> Dict[str, str]:
     """
     Returns the appropriate cookies for ESPN.
     """
-    return {"swid": ESPN_SWID, "espn_s2": ESPN_S2}
-
-
-def get_espn_league_data():
-    """
-    Looks up the league's roster data and returns it in JSON format.
-
-    Follow-on parsing tasks:
-    - league members.
-    - league settings & information.
-    - teams.
-    - rosters for each team.
-    - watchlists.
-    - transaction counter
-    - draft data.
-    """
-    league_data_raw = requests.get(
-        ESPN_ROSTERS_URL.format(season=ACTIVE_SEASON, league_id=ESPN_LEAGUE_ID),
-        cookies=get_espn_cookies(),
-        headers=get_espn_headers(),
-    )
-    rosters_json = json.loads(league_data_raw.text)
-
-    date_str = str(datetime.date.today())
-    out_file_path = output_path("rosters" + date_str + ".json")
-    with open(out_file_path, "w", newline="") as out_file:
-        json.dump(rosters_json, out_file)
+    # return {"swid": ESPN_SWID, "espn_s2": ESPN_S2}
+    return {}
 
 
 def get_espn_player_data():
-    """
-    Use the ESPN player API in order to get information about the available players.
-    """
-    x_fantasy_filter = {
+    x_fantasy_filter = {  # type: ignore
         "players": {
             "filterSlotIds": {
                 "value": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 19]
             },
-            "limit": 2500,
+            "filterRanksForScoringPeriodIds": {"value": [6]},
+            "limit": 1500,
             "offset": 0,
-            "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
+            "sortPercOwned": {"sortAsc": False, "sortPriority": 1},
             "sortDraftRanks": {
                 "sortPriority": 100,
                 "sortAsc": True,
                 "value": "STANDARD",
             },
+            "filterRanksForRankTypes": {"value": ["STANDARD"]},
             "filterStatsForTopScoringPeriodIds": {
-                "value": 1,
-                "additionalValue": [],
+                "value": 5,
+                "additionalValue": [
+                    "002025",
+                    "102025",
+                    "002024",
+                    "012025",
+                    "022025",
+                    "032025",
+                    "042025",
+                    "062025",
+                    "010002025",
+                ],
             },
         }
     }
 
-    headers = {"X-Fantasy-Filter": json.dumps(x_fantasy_filter)}
-    data = requests.get(
-        ESPN_PLAYERS_URL.format(season=ACTIVE_SEASON, league_id=ESPN_LEAGUE_ID),
-        headers=headers,
-        cookies=get_espn_cookies(),
-    )
-    players_json = json.loads(data.text)
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:136.0) Gecko/20100101 Firefox/136.0",
+        "Accept": "application/json",
+        "Referer": "https://fantasy.espn.com/",
+        "Origin": "https://fantasy.espn.com",
+        "X-Fantasy-Filter": json.dumps(x_fantasy_filter),
+        "X-Fantasy-Source": "kona",
+        "X-Fantasy-Platform": "kona-PROD-e831827300039bb6b4959fb881cf960295cc32d8",
+    }
 
-    date_str = str(datetime.date.today())
-    out_file_path = output_path("players" + date_str + ".json")
+    response = requests.get(
+        ESPN_PLAYERS_URL.format(season=ACTIVE_SEASON),
+        headers=headers,
+    )
+
+    response.raise_for_status()
+    players_json = response.json()
+
+    date_str = datetime.date.today().isoformat()
+    out_file_path = f"players_{date_str}.json"
+
     with open(out_file_path, "w", newline="") as out_file:
         json.dump(players_json, out_file)
+
+    return players_json
 
 
 def load_league_members_to_postgres():
@@ -540,9 +538,9 @@ def get_player_position_eligibility(player):
 
 
 if __name__ == "__main__":
-    get_espn_league_data()
-    get_espn_player_data()
+    # get_espn_league_data()
+    # get_espn_player_data()
     load_players_to_postgres()
-    load_league_members_to_postgres()
-    load_teams_to_postgres()
-    load_rosters_to_postgres()
+    # load_league_members_to_postgres()
+    # load_teams_to_postgres()
+    # load_rosters_to_postgres()
