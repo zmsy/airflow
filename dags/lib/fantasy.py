@@ -17,9 +17,8 @@ from bs4 import BeautifulSoup
 
 import db
 from util import output_path
+from const import ACTIVE_SEASON
 
-
-ACTIVE_SEASON = 2023
 
 # espn names are canon for this analysis - use those!
 NAME_REPLACEMENTS = {}
@@ -437,8 +436,8 @@ if __name__ == "__main__":
     print()
     # get_all_fangraphs_pages()
     # post_all_fangraphs_projections_to_postgres()
-    # get_pitcherlist_top_100()
-    get_player_id_map()
+    get_pitcherlist_top_100()
+    # get_player_id_map()
     # get_fangraphs_actuals()
     # get_statcast_batter_actuals()
     # get_statcast_pitcher_actuals()

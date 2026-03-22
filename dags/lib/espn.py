@@ -9,7 +9,8 @@ import datetime
 import json
 import os
 import psycopg2
-from psycopg2.extras import execute_values
+from psycopg2.extras import execute_values  # type: ignore
+from typing import List
 
 import db
 from const import ACTIVE_SEASON
@@ -510,7 +511,7 @@ def get_player_eligibile_slots(player):
     return eligibility_list
 
 
-def get_player_position_eligibility(player):
+def get_player_position_eligibility(player) -> List[str]:
     """
     From a list of eligible slots, return those that are actually positions and not
     just ESPN eligibility slots.
