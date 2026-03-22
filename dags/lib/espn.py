@@ -22,9 +22,20 @@ ESPN_S2 = os.environ["ESPN_S2"]
 
 # ## Get Roster Data
 # This will rip the roster information from ESPN and save it to a local CSV file.
-ESPN_ROSTERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
-ESPN_PLAYERS_URL = "http://fantasy.espn.com/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?scoringPeriodId=0&view=kona_player_info"
+FANTASY_BASE_URL = "https://fantasy.espn.com"
+ESPN_ROSTERS_URL = (
+    FANTASY_BASE_URL
+    + "/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
+)
+ESPN_PLATFORM_VERSION = "52702058c97c561838c8d915239c0ce6aef3f913"
+ESPN_PLAYERS_URL = (
+    FANTASY_BASE_URL
+    + "/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?"
+    + "scoringPeriodId=0&view=kona_player_info&platformVersion="
+    + ESPN_PLATFORM_VERSION
+)
 ESPN_LEAGUE_ID = 15594
+FANTASY_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:148.0) Gecko/20100101 Firefox/148.0"
 
 
 def get_postgres_connection():
@@ -45,7 +56,16 @@ def get_espn_headers():
     """
     Returns the correct set of headers for the ESPN request.
     """
-    return {"X-Fantasy-Platform": "kona-PROD-955c44b415a96e5c22bf97778ec0ce85dc325233"}
+    return {
+        "X-Fantasy-Platform": "espn-fantasy-web",
+        "X-Fantasy-Source": "kona",
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Connection": "keep-alive",
+        "Referer": FANTASY_BASE_URL + "/",
+        "Origin": FANTASY_BASE_URL,
+        "User-Agent": FANTASY_USER_AGENT,
+    }
 
 
 def get_espn_cookies():
@@ -68,11 +88,15 @@ def get_espn_league_data():
     - transaction counter
     - draft data.
     """
+    date_str = str(datetime.date.today())
     league_data_raw = requests.get(
         ESPN_ROSTERS_URL.format(season=ACTIVE_SEASON, league_id=ESPN_LEAGUE_ID),
         cookies=get_espn_cookies(),
         headers=get_espn_headers(),
     )
+    out_file_path_1 = output_path(f"raw_fetch_{date_str}.json")
+    with open(out_file_path_1, "w", newline="") as out_file:
+        json.dump(league_data_raw.text, out_file)
     rosters_json = json.loads(league_data_raw.text)
 
     date_str = str(datetime.date.today())
@@ -92,14 +116,15 @@ def get_espn_player_data():
             },
             "limit": 2500,
             "offset": 0,
-            "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
+            "filterRanksForScoringPeriodIds": {"value": [1]},
+            "sortPercOwned": {"sortPriority": 2, "sortAsc": False},
             "sortDraftRanks": {
                 "sortPriority": 100,
                 "sortAsc": True,
                 "value": "STANDARD",
             },
             "filterStatsForTopScoringPeriodIds": {
-                "value": 1,
+                "value": 5,
                 "additionalValue": [],
             },
         }
@@ -500,13 +525,12 @@ def get_player_eligibile_slots(player):
             (15, "RP"),  # 3
         ]
     )
-    eligible_slots = player.get("player", {}).get("eligibleSlots")
+    eligible_slots = player.get("player", {}).get("eligibleSlots", [])
 
     # pass all of the eligibility values to our lookup map
-    eligibility_list = [lineupSlots.get(x) for x in eligible_slots]
-
-    # filter any for positions that we don't have, or generic positions.
-    eligibility_list = list(filter(lambda x: x is not None, eligibility_list))
+    eligibility_list = [
+        slot for x in eligible_slots if (slot := lineupSlots.get(x)) is not None
+    ]
 
     return eligibility_list
 
@@ -529,13 +553,12 @@ def get_player_position_eligibility(player) -> List[str]:
             (15, "RP"),  # 3
         ]
     )
-    eligible_slots = player.get("player", {}).get("eligibleSlots")
+    eligible_slots = player.get("player", {}).get("eligibleSlots", [])
 
     # pass all of the eligibility values to our lookup map
-    eligibility_list = [actual_positions.get(x) for x in eligible_slots]
-
-    # filter any for positions that we don't have, or generic positions.
-    eligibility_list = list(filter(lambda x: x is not None, eligibility_list))
+    eligibility_list = [
+        slot for x in eligible_slots if (slot := actual_positions.get(x)) is not None
+    ]
 
     return eligibility_list
 
