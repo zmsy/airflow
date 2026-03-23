@@ -23,13 +23,14 @@ ESPN_S2 = os.environ["ESPN_S2"]
 # ## Get Roster Data
 # This will rip the roster information from ESPN and save it to a local CSV file.
 FANTASY_BASE_URL = "https://fantasy.espn.com"
+ESPN_API_BASE_URL = "https://lm-api-reads.fantasy.espn.com"
 ESPN_ROSTERS_URL = (
-    FANTASY_BASE_URL
-    + "/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav"
+    ESPN_API_BASE_URL
+    + "/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?view=mDraftDetail&view=mPositionalRatings&view=mPendingTransactions&view=mLiveScoring&view=mSettings&view=mRoster&view=mTeam&view=modular&view=mNav&platformVersion=52702058c97c561838c8d915239c0ce6aef3f913"
 )
 ESPN_PLATFORM_VERSION = "52702058c97c561838c8d915239c0ce6aef3f913"
 ESPN_PLAYERS_URL = (
-    FANTASY_BASE_URL
+    ESPN_API_BASE_URL
     + "/apis/v3/games/flb/seasons/{season}/segments/0/leagues/{league_id}?"
     + "scoringPeriodId=0&view=kona_player_info&platformVersion="
     + ESPN_PLATFORM_VERSION
@@ -117,7 +118,7 @@ def get_espn_player_data():
             "limit": 2500,
             "offset": 0,
             "filterRanksForScoringPeriodIds": {"value": [1]},
-            "sortPercOwned": {"sortPriority": 2, "sortAsc": False},
+            "sortPercOwned": {"sortPriority": 1, "sortAsc": False},
             "sortDraftRanks": {
                 "sortPriority": 100,
                 "sortAsc": True,
@@ -130,7 +131,8 @@ def get_espn_player_data():
         }
     }
 
-    headers = {"X-Fantasy-Filter": json.dumps(x_fantasy_filter)}
+    headers = get_espn_headers()
+    headers["X-Fantasy-Filter"] = json.dumps(x_fantasy_filter)
     data = requests.get(
         ESPN_PLAYERS_URL.format(season=ACTIVE_SEASON, league_id=ESPN_LEAGUE_ID),
         headers=headers,
@@ -149,6 +151,7 @@ def load_league_members_to_postgres():
     Loads the list of league members from the json file to the
     postgres database.
     """
+    print("Loading league members to postgres...")
     conn = get_postgres_connection()
     cur = conn.cursor()
     cur.execute(
@@ -359,6 +362,7 @@ def load_players_to_postgres():
     """
     Loads the player entries to postgres.
     """
+    print("Loading players to postgres...")
     conn = get_postgres_connection()
     cur = conn.cursor()
     cur.execute(
@@ -564,8 +568,8 @@ def get_player_position_eligibility(player) -> List[str]:
 
 
 if __name__ == "__main__":
-    get_espn_league_data()
-    get_espn_player_data()
+    # get_espn_league_data()
+    # get_espn_player_data()
     load_players_to_postgres()
     load_league_members_to_postgres()
     load_teams_to_postgres()
