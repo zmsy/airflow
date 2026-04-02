@@ -8,6 +8,8 @@ for later analysis.
 import json
 import os
 import re
+from datetime import date
+from pathlib import Path
 
 import pandas as pd
 import pybaseball
@@ -17,9 +19,8 @@ from bs4 import BeautifulSoup
 
 import db
 from util import output_path
+from const import ACTIVE_SEASON
 
-
-ACTIVE_SEASON = 2023
 
 # espn names are canon for this analysis - use those!
 NAME_REPLACEMENTS = {}
@@ -69,6 +70,22 @@ def pandas_parse_actuals(input_html, out_file_name):
     conn.close()
 
 
+def _fetch_or_cache_html(url: str, cache_name: str, current_date: str) -> str:
+    cache_file = output_path(f"{cache_name}_actuals_{current_date}.html")
+    cache_dir = os.path.dirname(cache_file)
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_path = Path(cache_file)
+    if cache_path.exists():
+        print(f"Using cached {cache_name} actuals for {current_date}")
+        return cache_path.read_text(encoding="utf-8")
+
+    response = requests.get(url)
+    html = response.text
+    cache_path.write_text(html, encoding="utf-8")
+    print(f"Cached {cache_name} actuals for {current_date}")
+    return html
+
+
 def get_fangraphs_actuals():
     """
     Return the actuals for each player.
@@ -81,9 +98,9 @@ def get_fangraphs_actuals():
         season=ACTIVE_SEASON
     )
 
-    # # request the data
-    pitchers_html = requests.get(PITCHERS_URL).text
-    batters_html = requests.get(BATTERS_URL).text
+    today = date.today().isoformat()
+    batters_html = _fetch_or_cache_html(BATTERS_URL, "batters", today)
+    pitchers_html = _fetch_or_cache_html(PITCHERS_URL, "pitchers", today)
 
     # Now that we have all of the player data, I'm writing these out to a CSV file if I want to load them again later without having to run the requests to those pages once more.
     pandas_parse_actuals(batters_html, "batters_actuals.csv")
@@ -209,17 +226,21 @@ def get_player_id_map():
     postgres.
     https://www.smartfantasybaseball.com/2020/12/everything-you-need-to-know-about-the-player-id-map/#WhatVersions
     """
-    player_id_map_url = "https://docs.google.com/spreadsheets/d/1JgczhD5VDQ1EiXqVG-blttZcVwbZd5_Ne_mefUGwJnk/pubhtml?gid=0&single=true"
-    data = pd.read_html(player_id_map_url)  # type: ignore
-    df = data[0]
+    # player_id_map_url = "https://docs.google.com/spreadsheets/d/1JgczhD5VDQ1EiXqVG-blttZcVwbZd5_Ne_mefUGwJnk/pubhtml?gid=0&single=true"
+    # data = pd.read_html(player_id_map_url)  # type: ignore
+    # df = data[0]
+    # df.columns = [(str(x) or "").lower() for x in cols]
     # use first row as columns
-    cols = df.iloc[0]
-    # use first row as columns
-    df.columns = [(str(x) or "").lower() for x in cols]
-    df.drop(df.index[0])
+    # df.drop(df.index[0])
+    # cols = df.iloc[0]
+    # downloaded the playerid map from here:
+    #
+    df = pd.read_csv(output_path("playeridmap.csv"))
+    df.columns = [x.lower() for x in df.columns]
 
     # only important columns and no nans
     df = df[["playername", "idfangraphs", "espnid"]].dropna()
+    df["espnid"] = df["espnid"].astype(int).astype(str)
 
     engine = get_sqlalchemy_engine()
     conn = engine.connect()
@@ -438,7 +459,7 @@ if __name__ == "__main__":
     # get_all_fangraphs_pages()
     # post_all_fangraphs_projections_to_postgres()
     # get_pitcherlist_top_100()
-    get_player_id_map()
+    # get_player_id_map()
     # get_fangraphs_actuals()
     # get_statcast_batter_actuals()
     # get_statcast_pitcher_actuals()

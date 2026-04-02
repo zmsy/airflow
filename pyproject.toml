@@ -1,0 +1,21 @@
+[project]
+name = "airflow"
+version = "0.1.0"
+description = "Fantasy baseball data scripts and ingestion helpers"
+readme = "README.md"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "html5lib>=1.1",
+    "numpy>=2.2.6",
+    "pandas>=2.3.3",
+    "psycopg2-binary>=2.9.11",
+    "pybaseball>=2.2.7",
+    "requests>=2.32.5",
+    "sqlalchemy>=2.0.48",
+]
+
+[dependency-groups]
+dev = [
+    "black>=26.3.1",
+]
